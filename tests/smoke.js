@@ -119,17 +119,21 @@ async function mockBoard(page, mode = 'ok') {
   await page.screenshot({ path: `${OUT}/3b-minigame-codeit.png` });
   check('"Code It!" quiz starts and shows a question', inQuiz && await page.isVisible('#mg'));
   const statsBefore = await page.evaluate(() => ({ ...DSS.S.stats }));
-  for (let r = 0; r < 5; r++) {   // answer every round correctly with the number keys
-    await waitFor(page, () => DSS.MG.active && DSS.MG.active.state !== 'feedback', null, 3000);
-    const idx = await page.evaluate(() => DSS.MG.active && DSS.MG.active.state === 'question' ? DSS.MG.active.item.opts.findIndex((o) => o.ok) : -1);
-    if (idx >= 0) await page.keyboard.press(String(idx + 1));
-    await page.waitForTimeout(1000);
+  const rounds = await page.evaluate(() => DSS.MG.active.n);
+  for (let r = 0; r < rounds; r++) {   // answer every question correctly with the number keys, skip the "Did you know?"
+    await waitFor(page, () => DSS.MG.active && DSS.MG.active.state === 'question', null, 5000);
+    const idx = await page.evaluate(() => DSS.MG.active.q.opts.findIndex((o) => o.ok));
+    await page.keyboard.press(String(idx + 1));
+    await page.waitForTimeout(r === 0 ? 400 : 700);
+    if (r === 0) await page.screenshot({ path: `${OUT}/3b2-minigame-did-you-know.png` });
+    await page.waitForTimeout(300);
+    await page.keyboard.press('e');
   }
   const quizDone = await waitFor(page, () => DSS.MG.active && DSS.MG.active.state === 'result', null, 5000);
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/3c-minigame-result.png`, animations: 'disabled' });
-  const quizRes = await page.evaluate(() => ({ correct: DSS.MG.active.correct, n: DSS.MG.active.items.length }));
-  check('quiz finishes with a result screen (all answered correctly)', quizDone && quizRes.correct === quizRes.n, JSON.stringify(quizRes));
+  const quizRes = await page.evaluate(() => ({ correct: DSS.MG.active.correct, n: DSS.MG.active.n, streak: DSS.S.quizStreaks.meddra }));
+  check('quiz finishes with a result screen (all answered correctly, streak kept)', quizDone && quizRes.correct === quizRes.n && quizRes.streak === quizRes.n, JSON.stringify(quizRes));
   await page.keyboard.press('e');
   await page.waitForTimeout(200);
   const statsAfter = await page.evaluate(() => ({ mode: DSS.S.mode, ...DSS.S.stats }));
@@ -181,18 +185,49 @@ async function mockBoard(page, mode = 'ok') {
   const san1w = await page.evaluate(() => DSS.S.stats.sanity);
   check('bio break restores Sanity', inWc && san1w > san0w + 5, `sanity ${san0w.toFixed(1)} -> ${san1w.toFixed(1)}`);
 
-  // TV: a corporate email pops up; "Reply all" costs Sanity
+  // TV: WHACK-A-SIGNAL. Whack a signal with the numpad keys, a noise blip with a click, then finish the round
   check('walked to the TV', await walkTo(page, 'api.goToObj("v")', 30000));
+  await page.keyboard.press('e');
+  const inWhack = await waitFor(page, () => DSS.S.mode === 'minigame' && DSS.MG.active && DSS.MG.active.kind === 'whack', null, 3000);
+  await page.keyboard.press('e');   // skip the intro
+  await page.evaluate(() => { const g = DSS.MG.active; g.spawnT = 99; for (const c of g.cells) c.kind = null;
+    Object.assign(g.cells[0], { kind: 'signal', label: 'PRR 4.2', t: 0, dur: 99 }); Object.assign(g.cells[8], { kind: 'noise', label: 'KNOWN ADR', t: 0, dur: 99 }); });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/3i-whack-a-signal.png` });
+  await page.keyboard.press('7');   // numpad layout: 7 = top-left monitor
+  const wbox = await page.locator('#mgCanvas').boundingBox();
+  const cell = await page.evaluate(() => DSS.MG.active.cellRect(8));
+  const W = await page.evaluate(() => DSS.MG.active.W);
+  const sc = wbox.width / W;
+  await page.mouse.click(wbox.x + (cell.x + cell.w / 2) * sc, wbox.y + (cell.y + cell.h / 2) * sc);
+  await page.waitForTimeout(100);
+  const wh = await page.evaluate(() => { const g = DSS.MG.active; return { hits: g.hits, falses: g.falses, points: g.points }; });
+  check('Whack-a-Signal: keys whack a signal, clicking noise is a false alarm', inWhack && wh.hits === 1 && wh.falses === 1, JSON.stringify(wh));
+  await page.evaluate(() => { DSS.MG.active.time = 0.01; });
+  const whackDone = await waitFor(page, () => DSS.MG.active && DSS.MG.active.state === 'result', null, 3000);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/3j-whack-result.png`, animations: 'disabled' });
+  check('Whack-a-Signal ends with a result screen and a reward', whackDone && await page.evaluate(() => DSS.MG.active.reward.sanity > 0));
+  await page.keyboard.press('e'); await page.waitForTimeout(200);
+
+  // noticeboard: a pinned corporate email; "Reply all" costs Sanity; no repeats until all were read
+  check('walked to the noticeboard', await walkTo(page, 'api.goToObj("B")', 30000));
   await page.keyboard.press('e');
   const mailOpen = await waitFor(page, () => DSS.S.mode === 'mail', null, 3000);
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/3i-corporate-email.png` });
+  await page.screenshot({ path: `${OUT}/3k-noticeboard-email.png` });
   const subj = await page.textContent('#mailSubject');
   const sanM = await page.evaluate(() => DSS.S.stats.sanity);
   await page.keyboard.press('2');
   await page.waitForTimeout(200);
   const afterMail = await page.evaluate(() => ({ mode: DSS.S.mode, san: DSS.S.stats.sanity }));
-  check('TV opens a corporate email; Reply all closes it with a penalty', mailOpen && afterMail.mode === 'playing' && afterMail.san < sanM && !(await page.isVisible('#mail')), `"${subj}" sanity ${sanM.toFixed(1)} -> ${afterMail.san.toFixed(1)}`);
+  check('noticeboard opens a pinned email; Reply all closes it with a penalty', mailOpen && afterMail.mode === 'playing' && afterMail.san < sanM && !(await page.isVisible('#mail')), `"${subj}" sanity ${sanM.toFixed(1)} -> ${afterMail.san.toFixed(1)}`);
+
+  const mailBag = await page.evaluate(() => {
+    const seen = new Set(); for (let i = 1; i < DSS.CONTENT.mails.length; i++) seen.add(DSS.MailBag.draw().subject);
+    return { total: DSS.CONTENT.mails.length, unique: seen.size + 1, seen: DSS.MailBag.seen.size };
+  });
+  check('40+ emails, none repeated until every one has been read', mailBag.total >= 40 && mailBag.unique === mailBag.total && mailBag.seen === mailBag.total, JSON.stringify(mailBag));
 
   // talk to a colleague (Nora wanders, so keep re-planning until adjacent)
   await page.evaluate(() => { const n = DSS.NPCS.find((x) => x.id === 'lin'); n.chatReadyAt = 0; });
