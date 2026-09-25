@@ -71,7 +71,7 @@ async function mockBoard(page, mode = 'ok') {
   check('name is cleaned, remembered, and the shift starts', nm.mode === 'playing' && nm.name === 'Test Player', JSON.stringify(nm));
   const mapOk = await page.evaluate(() => {
     const { POIS } = window; // not exported: verify via walkable on key tiles instead
-    const tiles = [[22, 9], [9, 23], [36, 11], [28, 5], [20, 21], [16, 2], [5, 2]];
+    const tiles = [[22, 9], [9, 23], [36, 11], [32, 5], [20, 21], [16, 2], [5, 2], [25, 2], [25, 7], [36, 9]];
     return tiles.every(([x, y]) => DSS.walkable(x, y));
   });
   check('map: key standing tiles are walkable', mapOk);
@@ -154,6 +154,45 @@ async function mockBoard(page, mode = 'ok') {
   await page.keyboard.press('e');
   await page.waitForTimeout(200);
   check('back in the office after table tennis', (await page.evaluate(() => DSS.S.mode)) === 'playing');
+
+  // vending machine: pick a snack for Energy
+  await page.evaluate(() => { DSS.CONFIG.vending.stuckChance = 0; DSS.S.stats.energy = 40; });
+  check('walked to the vending machine', await walkTo(page, 'api.goToObj("V")', 30000));
+  await page.keyboard.press('e');
+  const vendOpen = await waitFor(page, () => DSS.S.mode === 'dialog' && DSS.S.dialog.vend, null, 3000);
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/3g-vending.png` });
+  const snack = await page.evaluate(() => DSS.S.dialog.choices[0]);
+  const nrg0 = await page.evaluate(() => DSS.S.stats.energy);
+  await page.keyboard.press('1');
+  await page.waitForTimeout(200);
+  const nrg1 = await page.evaluate(() => DSS.S.stats.energy);
+  check('vending menu opens and a snack gives Energy', vendOpen && nrg1 > nrg0 + 5, `${snack.text}: energy ${nrg0.toFixed(1)} -> ${nrg1.toFixed(1)}`);
+
+  // WC: a short lock-in that restores Sanity
+  await page.evaluate(() => { DSS.S.stats.sanity = 50; });
+  check('walked to the WC', await walkTo(page, 'api.goToObj("L")', 30000));
+  const san0w = await page.evaluate(() => DSS.S.stats.sanity);
+  await page.keyboard.press('e');
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${OUT}/3h-wc.png` });
+  const inWc = await page.evaluate(() => DSS.S.inToilet);
+  await waitFor(page, () => !DSS.S.inToilet, null, 8000);
+  const san1w = await page.evaluate(() => DSS.S.stats.sanity);
+  check('bio break restores Sanity', inWc && san1w > san0w + 5, `sanity ${san0w.toFixed(1)} -> ${san1w.toFixed(1)}`);
+
+  // TV: a corporate email pops up; "Reply all" costs Sanity
+  check('walked to the TV', await walkTo(page, 'api.goToObj("v")', 30000));
+  await page.keyboard.press('e');
+  const mailOpen = await waitFor(page, () => DSS.S.mode === 'mail', null, 3000);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/3i-corporate-email.png` });
+  const subj = await page.textContent('#mailSubject');
+  const sanM = await page.evaluate(() => DSS.S.stats.sanity);
+  await page.keyboard.press('2');
+  await page.waitForTimeout(200);
+  const afterMail = await page.evaluate(() => ({ mode: DSS.S.mode, san: DSS.S.stats.sanity }));
+  check('TV opens a corporate email; Reply all closes it with a penalty', mailOpen && afterMail.mode === 'playing' && afterMail.san < sanM && !(await page.isVisible('#mail')), `"${subj}" sanity ${sanM.toFixed(1)} -> ${afterMail.san.toFixed(1)}`);
 
   // talk to a colleague (Nora wanders, so keep re-planning until adjacent)
   await page.evaluate(() => { const n = DSS.NPCS.find((x) => x.id === 'lin'); n.chatReadyAt = 0; });
@@ -245,6 +284,20 @@ async function mockBoard(page, mode = 'ok') {
   await page.waitForTimeout(200);
   check('ENTER starts the next shift', (await page.evaluate(() => DSS.S.mode)) === 'playing');
 
+  // clock out on purpose: confirm screen, then a friendly ending that still posts the score
+  await page.evaluate(() => { DSS.S.time = 135; DSS.S.onTime = 1; });
+  const postsBefore = posted.length;
+  await page.click('#clockBtn');
+  await page.waitForTimeout(300);
+  const confirmShown = await page.evaluate(() => DSS.S.mode === 'paused' && document.querySelector('#overlay').dataset.kind === 'clockout');
+  await page.screenshot({ path: `${OUT}/8c-clock-out-confirm.png`, animations: 'disabled' });
+  await page.keyboard.press('Enter');
+  await waitFor(page, () => DSS.Board.lastPost && DSS.Board.lastPost.state === 'posted', null, 5000);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/8d-clocked-out.png`, animations: 'disabled' });
+  const co = await page.evaluate(() => ({ mode: DSS.S.mode, cause: DSS.S.deathCause, score: DSS.S.score }));
+  check('clock-out button asks first, then ends the shift and posts the score', confirmShown && co.mode === 'gameover' && co.cause === 'clockout' && posted.length === postsBefore + 1, JSON.stringify(co));
+
   await page.reload();
   await page.waitForTimeout(600);
   const hi = await page.evaluate(() => ({ hi: DSS.S.hi, name: DSS.Board.name, local: DSS.Board.local.length }));
@@ -291,6 +344,24 @@ async function mockBoard(page, mode = 'ok') {
   check('phone: name entry then joystick + action button shown', (await pp.evaluate(() => DSS.S.mode)) === 'playing' && await pp.isVisible('#joy') && await pp.isVisible('#actBtn'));
   const ov = await pp.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
   check('phone: no horizontal overflow', ov);
+
+  // phone: a meeting call is a small pill at the top, never covering Casey, and shows the way
+  await pp.evaluate(() => DSS.spawnEvent('signal'));
+  await pp.waitForTimeout(700);
+  await pp.screenshot({ path: `${OUT}/10b-phone-meeting.png` });
+  const pill = await pp.evaluate(() => {
+    const r = document.querySelector('#eventBox').getBoundingClientRect();
+    return { mini: document.querySelector('#eventBox').classList.contains('mini'), bottom: r.bottom, height: r.height };
+  });
+  const caseyY = await pp.evaluate(() => (typeof toScreen === 'function') ? toScreen(DSS.P.x, DSS.P.y - 40).y : null);
+  check('phone: meeting alert is a small pill above Casey', pill.mini && pill.height < 110 && caseyY !== null && pill.bottom < caseyY, JSON.stringify({ ...pill, caseyY }));
+  await pp.tap('#eventBox');
+  await pp.waitForTimeout(200);
+  const expanded = await pp.evaluate(() => !document.querySelector('#eventBox').classList.contains('mini'));
+  await pp.tap('#evMin');
+  await pp.waitForTimeout(200);
+  const collapsed = await pp.evaluate(() => document.querySelector('#eventBox').classList.contains('mini'));
+  check('phone: tapping the pill expands it, the ▾ button shrinks it again', expanded && collapsed);
 
   console.log('\nconsole errors/warnings:', errors.length ? errors : 'none');
   if (errors.length) failures++;
