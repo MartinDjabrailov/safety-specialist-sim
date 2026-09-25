@@ -156,11 +156,11 @@ button{font:inherit;color:inherit}
 .ev-head .tag{white-space:nowrap}
 #eventBox.mini .ev-timer{height:6px;margin-bottom:0}
 #eventBox.mini #evMin{transform:rotate(180deg)}
-/* corporate email pop-up */
-#mail{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:13;width:min(94vw,560px);max-height:90vh;overflow:auto;
-  background:#f5f7fb;color:#1b2033;border:4px solid #29e6ff;border-radius:12px;box-shadow:0 0 0 4px #000,0 0 30px #29e6ff66;
+/* break-room noticeboard: a printed corporate email pinned to the cork board */
+#mail{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-.6deg);z-index:13;width:min(94vw,560px);max-height:90vh;overflow:auto;
+  background:#fffdf3;color:#1b2033;border:10px solid #b5793f;border-radius:6px;box-shadow:0 0 0 4px #000,0 8px 30px #0008;
   font-family:"Segoe UI",Arial,sans-serif;font-weight:400;animation:popIn2 .2s ease-out}
-.mail-bar{display:flex;justify-content:space-between;align-items:center;background:#2b59c3;color:#fff;padding:8px 12px;font-family:var(--mono);font-weight:700;letter-spacing:1px;font-size:13px}
+.mail-bar{display:flex;justify-content:space-between;align-items:center;background:#7a4f24;color:#fff;padding:8px 12px;font-family:var(--mono);font-weight:700;letter-spacing:1px;font-size:13px}
 #mailClose{background:none;border:0;color:#fff;font-size:18px;cursor:pointer;padding:0 4px}
 .mail-meta{padding:10px 14px;border-bottom:1px solid #d5dbea;font-size:13px;line-height:1.6}
 .mail-meta b{color:#5a6280;font-weight:600;display:inline-block;min-width:62px}
@@ -340,7 +340,7 @@ button{font:inherit;color:inherit}
 </div>
 
 <div id="mail" hidden role="dialog" aria-label="Email">
-  <div class="mail-bar"><span>📧 <span id="mailHeader"></span></span><button id="mailClose" tabindex="-1" aria-label="Close">✕</button></div>
+  <div class="mail-bar"><span>📌 <span id="mailHeader"></span></span><button id="mailClose" tabindex="-1" aria-label="Close">✕</button></div>
   <div class="mail-meta">
     <div><b>From:</b> <span id="mailFrom"></span></div>
     <div><b>To:</b> <span id="mailTo"></span></div>
@@ -374,12 +374,12 @@ const CONFIG = {
     compliance: { start: 80, drain: 0.05, danger: 25, label: 'COMPLIANCE', short: 'COMP', color: '#29d9ff', icon: '📋' },
   },
   // each new day: drains and case arrivals speed up, until they hit the ceiling (then only your skill decides)
-  difficulty: { drainPerDay: 0.2, arrivalPerDay: 0.4, maxDrainMult: 1.6, maxArrivalMult: 2.3 },
+  difficulty: { drainPerDay: 0.45, arrivalPerDay: 0.35, maxDrainMult: 2.8, maxArrivalMult: 2.0 },   // later days: needs drain faster, cases come a bit quicker
   energyRegen: { rate: 0.5, caffeineMin: 40, caffeineMax: 85 }, // "in the zone" energy regen
   jitter: {
     threshold: 90,          // above this Caffeine Casey is jittery...
     sanityDrain: 0.4,       // ...and loses this much Sanity per second
-    coffeeSanityHit: -4,    // extra Sanity hit when a coffee pushes him over the threshold
+    coffeeSanityHit: -4,    // extra Sanity hit when a coffee pushes her over the threshold
     overloadAt: 97,         // at/above this Caffeine the OVERLOAD timer runs
     overloadSeconds: 12,    // seconds of overload before the SUSAR death (one coffee never kills; chugging does)
     overloadRecover: 0.5,   // overload timer drains at this rate when below overloadAt
@@ -416,8 +416,10 @@ const CONFIG = {
     seriousDeadline: 35,                 // compressed "7-day" clock, in seconds
     normalDeadline: 65,                  // compressed "15-day" clock, in seconds
     onTime: { compliance: 10 },
-    late: { compliance: -6 },            // when a deadline passes (+ manager scolding)
+    late: { compliance: -7 },            // when a deadline passes (+ manager scolding)
     lateSubmit: { compliance: 3 },       // submitting a case that was already late
+    waveSeconds: 150, waveAmp: 0.4,      // arrivals come in waves: busy stretches, then a quiet lull
+    maxWaiting: 3, holdSeconds: 8,       // with this many on-time cases waiting, new ones wait in the gateway
   },
   breakArea: { sanityPerSec: 3, maxSeconds: 12 },   // longer than this in the break area = scolding
   printer: { cooldown: 8, jamChance: 0.6 },
@@ -463,11 +465,15 @@ const CONFIG = {
   // Mini-games (the office is paused while you play)
   minigames: {
     cooldown: 45,                 // seconds before the same mini-game can be played again
-    quizRounds: 5,                // rounds per quiz game
-    quizSeconds: 6,               // seconds per quiz round
+    quizRounds: 6,                // questions per colleague quiz (drawn from each colleague's own no-repeat bag)
+    quizSeconds: { mc: 10, bin: 7 },   // seconds per question, by type
     quizReward: { sanityBase: 4, sanityPerCorrect: 3, compliancePerCorrect: 2 },
-    pong: { pointsToWin: 3, ballSpeed: 230, speedUpPerHit: 1.07, maxBallSpeed: 520, paddleSpeed: 300, cpuSpeed: 185,
+    pong: { pointsToWin: 3, ballSpeed: 230, speedUpPerHit: 1.07, maxBallSpeed: 520, paddleSpeed: 420, paddleAccel: 22, cpuSpeed: 185,
             win: { sanity: 22, energy: 6 }, lose: { sanity: 10 } },
+    // WHACK-A-SIGNAL on the break-room TV: spawn gap and time on screen shrink from start to end of the round
+    whack: { seconds: 30, cooldown: 45, spawnStart: 0.9, spawnEnd: 0.42, upStart: 1.6, upEnd: 0.85, noiseChance: 0.35,
+             signalPoints: 10, noisePenalty: 5, comboStep: 5,
+             sanityBase: 4, pointsPerSanity: 25, maxSanity: 22, hitsPerCompliance: 6, maxCompliance: 5 },
   },
   score: { perDay: 100, perCase: 25 },
   // Office leaderboard (Supabase). The publishable key is meant to be public: the table only allows
@@ -485,7 +491,8 @@ const CONFIG = {
   audio: { volume: 0.35, music: true, musicVolume: 0.4, bpm: 124, dangerTempo: 1.25 },
   fx: { restartLockMs: 900 },
   storageKeys: { hi: 'drugSafetySim.hiScore', muted: 'drugSafetySim.muted', board: 'drugSafetySim.board',
-                 player: 'drugSafetySim.playerName', playerId: 'drugSafetySim.playerId', trivia: 'drugSafetySim.triviaBag' },
+                 player: 'drugSafetySim.playerName', playerId: 'drugSafetySim.playerId', trivia: 'drugSafetySim.triviaBag',
+                 quizPrefix: 'drugSafetySim.quizBag.', mail: 'drugSafetySim.mailBag' },
 };
 
 /* =====================================================================
@@ -497,7 +504,7 @@ const CONFIG = {
 const CONTENT = {
   title: 'DRUG SAFETY SIMULATOR',
   subtitle: 'A PHARMACOVIGILANCE SURVIVAL GAME',
-  footer: 'An unofficial, affectionate parody of pharmacovigilance life at Thermo Fisher. All cases, products and people are fictional.',
+  footer: 'An unofficial, affectionate parody of pharmacovigilance office life. All cases, companies, products and people are fictional.',
 
   people: {
     casey: { name: 'Case-Closed Casey',
@@ -572,6 +579,30 @@ const CONTENT = {
           choices: [
             { text: 'Classic Pat',    effects: { sanity: 6 },  reply: "I'm a classic." },
             { text: 'Can I decline?', effects: { sanity: 3 },  reply: 'You can. The calendar will remember.' } ] },
+        { line: "I've booked a meeting to discuss why we have so many meetings. Does 3pm work?",
+          choices: [
+            { text: 'Is it... a meeting?',  effects: { sanity: 5 },                  reply: "It's a sync. Totally different. Same room." },
+            { text: 'Could it be an email?', effects: { sanity: 8, compliance: -1 }, reply: 'Emails need a meeting to align on first.' } ] },
+        { line: "Big news: we're moving to a new safety database. Again.",
+          choices: [
+            { text: 'Exciting!',                   effects: { sanity: -2, compliance: 2 }, reply: 'Love it. Training is only 40 hours.' },
+            { text: 'Will the search work this time?', effects: { sanity: 6 },            reply: "Let's put that in the parking lot." } ] },
+        { line: "How are you feeling, on a scale from 1 to 'late case'?",
+          choices: [
+            { text: 'A solid 7-day clock',     effects: { sanity: 5 },  reply: 'Love the PV humour. Very on brand.' },
+            { text: "Coded as 'Fatigue' (PT)", effects: { energy: 5 },  reply: "Take five. Just five. I'm counting." } ] },
+        { line: 'Can you present the signal slides tomorrow? They are 80% done. The 80% is the title.',
+          choices: [
+            { text: 'Absolutely',               effects: { compliance: 4, energy: -6 }, reply: "You're a star. The file is called final_v12_REAL." },
+            { text: 'Who made the other 20%?',  effects: { sanity: 6 },                 reply: 'That is the beauty of teamwork: nobody knows.' } ] },
+        { line: "I brought donuts! They're in the kitchen. Don't tell the Director.",
+          choices: [
+            { text: "You're the best, Pat", effects: { sanity: 10 },               reply: 'I know. Timelines, though. Timelines.' },
+            { text: 'Is this a bribe?',     effects: { sanity: 6, compliance: 1 }, reply: "It's a motivational glazed deliverable." } ] },
+        { line: 'Your KPI dashboard is very green. Suspiciously green.',
+          choices: [
+            { text: 'Hard work!',                   effects: { compliance: 2 }, reply: 'Love it. Keep the green going.' },
+            { text: "It's the colour-blind filter", effects: { sanity: 7 },     reply: "...I'll pretend I didn't hear that." } ] },
       ],
       scold: {
         late:    { effects: { sanity: -4 }, lines: ["Day 15 was yesterday. Can we talk about 'timelines'?", 'A late case! Somewhere, a regulator just felt a disturbance.', "Late submission. I'll need a deviation. And a hug."] },
@@ -592,6 +623,34 @@ const CONTENT = {
           choices: [
             { text: 'Yes, Director!',   effects: { sanity: -2 }, reply: 'Good. Carry on.' },
             { text: 'Nice sunglasses',  effects: { sanity: 5 },  reply: "They're prescription. For strategic vision." } ] },
+        { line: "Our new vision statement: 'Zero late cases. Infinite synergy.' Thoughts?",
+          choices: [
+            { text: 'Visionary.',       effects: { compliance: 2 }, reply: 'I know.' },
+            { text: 'What is synergy?', effects: { sanity: 5 },     reply: "Nobody knows. That's what makes it powerful." } ] },
+        { line: 'I have thirty seconds. Summarise pharmacovigilance.',
+          choices: [
+            { text: 'We watch medicines so patients stay safe', effects: { compliance: 3 }, reply: 'Perfect. Put it on a mug.' },
+            { text: 'Cases. Coffee. Cases.',                    effects: { sanity: 6 },     reply: 'Accurate. Disturbingly accurate.' } ] },
+        { line: 'The inspectors loved us last time. Well, they tolerated us. Let us aim higher.',
+          choices: [
+            { text: 'Inspection-ready every day!',   effects: { compliance: 4, energy: -3 }, reply: 'That is the energy I pay for.' },
+            { text: "Should I hide the 'misc' folder?", effects: { sanity: 5, compliance: -2 }, reply: "There is no misc folder. There never was." } ] },
+        { line: "I'm told you're one of our best. Who told me? I did. Just now.",
+          choices: [
+            { text: 'Thank you!',               effects: { sanity: 8 },                reply: "Don't let it go to your inbox." },
+            { text: 'Can I get that in writing?', effects: { sanity: 5, compliance: 1 }, reply: 'Book a meeting. My calendar is free in 2031.' } ] },
+        { line: 'Headcount is tight, so I have approved one extra... coffee machine.',
+          choices: [
+            { text: 'Best news this year', effects: { caffeine: 10, sanity: 4 }, reply: "I'm a people person. Coffee people." },
+            { text: 'Could we get a person instead?', effects: { sanity: 2 },    reply: "The coffee machine doesn't ask for a raise." } ] },
+        { line: 'Tell me one thing I do not know about MedDRA.',
+          choices: [
+            { text: 'It has five levels',      effects: { compliance: 2 },            reply: 'Five. Like my yachts. I have no yachts.' },
+            { text: 'It updates twice a year', effects: { compliance: 2, sanity: 2 }, reply: 'Twice a year. Like my holidays. Those I do have.' } ] },
+        { line: 'Do you ever wonder why I wear sunglasses indoors?',
+          choices: [
+            { text: 'Every day',           effects: { sanity: 4 }, reply: 'The future is bright. Our compliance chart, specifically.' },
+            { text: 'Never. Not my business', effects: { compliance: 2 }, reply: 'Excellent discretion. You will go far. Down the corridor.' } ] },
       ],
       lowCompliance: { line: 'Why is compliance at {compliance}%? I want 100%. By lunch.', effects: { sanity: -10 } },
       scenes: [
@@ -607,70 +666,31 @@ const CONTENT = {
       ] },
   },
 
-  // Mini-games. Colleagues offer theirs as an extra reply in conversation; the ping pong table starts TABLE TENNIS.
-  // Quiz items: { q: prompt, options: [...], answer: index }. Options are shuffled in the game.
+  // Mini-games. Colleagues offer theirs as an extra reply in conversation; the ping pong table starts TABLE TENNIS,
+  // the break-room TV starts WHACK-A-SIGNAL. Colleague question banks (.bank) live after the trivia bank.
   minigames: {
     meddra: { host: 'max', title: 'CODE IT!', intro: 'Match the reporter\'s words to the right Preferred Term!', offer: 'Play "Code It!" with Max',
       prompt: 'THE REPORTER SAID:',
-      items: [
-        { q: '"My head is pounding since the second tablet."', options: ['Headache', 'Pyrexia', 'Back pain'], answer: 0 },
-        { q: '"Felt like throwing up all morning." (did not vomit)', options: ['Nausea', 'Vomiting', 'Diarrhoea'], answer: 0 },
-        { q: '"Burning up, 39.5 degrees."', options: ['Pyrexia', 'Hyperhidrosis', 'Chills'], answer: 0 },
-        { q: '"Could not sleep a wink."', options: ['Insomnia', 'Somnolence', 'Fatigue'], answer: 0 },
-        { q: '"Itchy skin everywhere, but no rash."', options: ['Pruritus', 'Rash', 'Dry skin'], answer: 0 },
-        { q: '"My heart is racing like a hamster on a wheel."', options: ['Palpitations', 'Bradycardia', 'Chest pain'], answer: 0 },
-        { q: '"Everything tastes like old coins."', options: ['Dysgeusia', 'Ageusia', 'Dry mouth'], answer: 0 },
-        { q: '"The pill did absolutely nothing."', options: ['Drug ineffective', 'Drug interaction', 'Off label use'], answer: 0 },
-        { q: '"Fell asleep in the middle of a meeting."', options: ['Somnolence', 'Insomnia', 'Syncope'], answer: 0 },
-        { q: '"Ringing in my ears since Tuesday."', options: ['Tinnitus', 'Deafness', 'Ear pain'], answer: 0 },
-      ],
       results: ['Max: "You speak fluent MedDRA. Marry me. Professionally."', 'Max: "Solid coding. The LLTs approve."', 'Max: "Close enough for a first draft..."'] },
     lit: { host: 'lin', title: 'ABSTRACT BLITZ', intro: 'Is this abstract a human case worth processing?', offer: 'Play "Abstract Blitz" with Lin',
       prompt: 'ABSTRACT:',
-      items: [
-        { q: 'Mice given Compound Z showed reduced fur density.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
-        { q: 'A 58-year-old man developed jaundice two weeks after starting Product A.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
-        { q: 'In vitro: Compound Z inhibits an enzyme in cell cultures.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
-        { q: 'A pregnant woman exposed to Product A delivered a healthy baby.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
-        { q: 'Rats fed Product A for 90 days gained weight.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
-        { q: 'Two patients on Product A had a severe rash; one was hospitalised.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
-        { q: 'A review of Product A manufacturing costs in 2024.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
-        { q: 'A child swallowed Product A tablets by accident; no symptoms.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
-        { q: 'Zebrafish embryos exposed to Compound Z swam in circles.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
-        { q: 'An elderly patient fell and broke a hip after the dose was doubled.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
-      ],
       results: ['Lin: "You screened faster than the mice could run."', 'Lin: "Nice. Only a few mice got through."', 'Lin: "...We\'ll call it training data."'] },
     serious: { host: 'nora', title: 'SERIOUS OR NOT?', intro: 'Apply the seriousness criteria. Fast!', offer: 'Play "Serious or Not?" with Nora',
       prompt: 'THE EVENT:',
-      items: [
-        { q: 'Admitted to hospital overnight for liver failure.', options: ['Serious', 'Non-serious'], answer: 0 },
-        { q: 'Mild headache, gone after a nap.', options: ['Serious', 'Non-serious'], answer: 1 },
-        { q: 'Anaphylaxis in the ER. Life-threatening.', options: ['Serious', 'Non-serious'], answer: 0 },
-        { q: 'Nausea for two days, no treatment needed.', options: ['Serious', 'Non-serious'], answer: 1 },
-        { q: 'Baby born with a heart defect after exposure in pregnancy.', options: ['Serious', 'Non-serious'], answer: 0 },
-        { q: 'Patient died. Relationship to the drug unknown.', options: ['Serious', 'Non-serious'], answer: 0 },
-        { q: 'Itchy rash on one arm, gone in a week.', options: ['Serious', 'Non-serious'], answer: 1 },
-        { q: 'Permanent hearing loss after treatment.', options: ['Serious', 'Non-serious'], answer: 0 },
-        { q: 'Felt a bit tired after the dose.', options: ['Serious', 'Non-serious'], answer: 1 },
-        { q: 'Seizure treated in the ER (medically important).', options: ['Serious', 'Non-serious'], answer: 0 },
-      ],
       results: ['Nora: "Flawless. I\'m writing a narrative about you."', 'Nora: "Good instincts. Chapter approved."', 'Nora: "Let\'s re-read the criteria together. Over tea."'] },
     qc: { host: 'quinn', title: 'SPOT THE ERROR', intro: 'Find the field that would fail QC.', offer: 'Play "Spot the Error" with Quinn',
       prompt: 'QC CHECK: WHICH FIELD IS WRONG?',
-      items: [
-        { q: '', options: ['Age: 250 years', 'Sex: Female', 'Event: Headache', 'Outcome: Recovered'], answer: 0 },
-        { q: '', options: ['Sex: Male', 'Pregnancy: Yes, 12 weeks', 'Event: Rash', 'Reporter: HCP'], answer: 1 },
-        { q: '', options: ['Event: Hospitalised 5 days', 'Seriousness: Non-serious', 'Outcome: Recovered', 'Age: 47'], answer: 1 },
-        { q: '', options: ['Drug: Product A', 'Patient: "some guy"', 'Event: Nausea', 'Reporter: Pharmacist'], answer: 1 },
-        { q: '', options: ['Dose: 5000 tablets daily', 'Route: Oral', 'Event: Dizziness', 'Sex: Female'], answer: 0 },
-        { q: '', options: ['Event: Headache', 'Coded PT: Fracture', 'Outcome: Resolved', 'Age: 41'], answer: 1 },
-        { q: '', options: ['Outcome: Fatal', 'Seriousness: Non-serious', 'Event: Stroke', 'Age: 60'], answer: 1 },
-        { q: '', options: ['Onset: 1 week BEFORE first dose (causality: related)', 'Drug: Product A', 'Event: Insomnia', 'Reporter: Consumer'], answer: 0 },
-      ],
       results: ['Quinn: "Zero findings. I have nothing to circle. I feel lost."', 'Quinn: "Sharp eyes. The red pen salutes you."', 'Quinn: "The red pen has... notes."'] },
     pong: { title: 'TABLE TENNIS', intro: 'First to 3! W/S or arrows (or drag) to move.',
       win: ['You win! Your wrists are now fully compliant.', 'Victory! Nobody will ever mention this in a 1:1.'],
       lose: ['You lost, but your sanity won.', 'Defeat. Coded as: Hand-eye coordination decreased.'] },
+    whack: { title: 'WHACK-A-SIGNAL', intro: 'Whack the red signals. Leave the grey noise alone.',
+      busy: ['The TV is showing a replay of the last PSUR. Try again in a bit.', 'Commercial break: an ad for a very calm database.'],
+      signals: ['PRR 4.2', 'ROR 3.1', 'EB05 > 2', 'CLUSTER!', '3 NEW CASES', 'LIVER X5', 'RECHALLENGE +', 'DECHALLENGE +', 'IME TERM', 'NEW PT SPIKE', 'SJS REPORT', 'QT FLAG', 'TTO 2 DAYS', 'PEDS CASES'],
+      noise: ['KNOWN ADR', 'DUPLICATE', 'LABELLED', 'CONFOUNDED', 'NO DRUG GIVEN', 'ONE-OFF', 'NOTORIETY', 'BASELINE', 'MEDIA HYPE', 'IN THE SPC', 'WRONG PRODUCT'],
+      results: ['Every true signal caught, zero false alarms. The signal team wants you back.',
+                'Good hunting. A few got away, but the committee is happy.',
+                'That was mostly noise. The signal committee requests a root cause analysis.'] },
   },
 
   vending: {
@@ -692,13 +712,14 @@ const CONTENT = {
     lines: ['Five minutes of peace. Do not tell Pat.', 'There is an SOP taped to the door. It is about handwashing.', 'Hiding from the case queue. Scientifically.'],
     busy: ['Occupied. Someone is reading the entire PBRER in there.'],
   },
-  // Clicking the TV opens one of these (fictional) company-wide emails.
+  // The break-room noticeboard shows one of these (fictional) company-wide emails, printed and pinned up.
+  // More emails are added in the NOTICEBOARD section after the question banks. Optional per-email `from`.
   mail: {
-    header: 'INBOX · 1 NEW MESSAGE', from: 'Global Internal Comms <no-reply@corp.example>', to: 'All Staff (38,412 recipients)',
+    header: 'BREAK ROOM NOTICEBOARD · PINNED TODAY', from: 'Global Internal Comms <no-reply@corp.example>', to: 'All Staff (38,412 recipients)',
     read: 'Mark as read', replyAll: 'Reply all',
     readEffects: { sanity: 3 }, replyAllEffects: { sanity: -4 },
     replyAllLines: ['You replied all. 38,412 people now know you said "Thanks!".', 'Reply-all sent. Somewhere, an inbox just burst into flames.'],
-    readLines: ['Marked as read. Emotionally, too.', 'Filed under: Things I will never un-read.'],
+    readLines: ['Marked as read. Emotionally, too.', 'Filed under: Things I will never un-read.', 'Someone has drawn a moustache on the signature.', 'Re-pinned it. Slightly crooked, for morale.'],
   },
   mails: [
     { subject: 'Mandatory fun is now mandatory', body: 'Dear Colleague,\n\nTo boost morale, taking part in the voluntary Fun Committee is now required. Please log all fun in FunTracker by Friday, in triplicate.\n\nUnlogged fun will be treated as a deviation.\n\nWarm regards,\nThe Fun Committee (Compliance Subgroup)' },
@@ -815,17 +836,29 @@ const CONTENT = {
   },
 
   lines: {
+    lull: ['The inbox is quiet. Suspiciously quiet.', 'No new cases? Quick, look busy. Or get a coffee.', 'A lull! Time for a break before the next wave.',
+           'The gateway has gone silent. Enjoy it while it lasts.', 'Quiet queue. I can hear the fridge humming.'],
     start: ['Morning! Headset on. Coffee pending.', "Let's close some cases.", 'Zero late cases today. Probably.'],
     coffee: ['Coffee: the only drug with no reported AEs. (Citation needed.)', 'Bean there, triaged that.', 'Expected: energy. Unexpected: none.', 'Espresso yourself.'],
     coffeeJittery: ['I CAN HEAR THE DATABASE.', 'MY HEART IS DOING EXPEDITED REPORTING.', 'Is this what time tastes like?!'],
     coffeeWait: ['Still brewing. Patience is a control measure.', 'The machine needs a moment. So do I.'],
     work: ["Is it 'Pyrexia' or 'Fever'? Yes.", 'Checking seriousness criteria...', "Causality: 'possible'. Everything is possible.", "'The patient, a 45-year-old...'", 'Four minimum criteria: check, check, check, check!'],
-    steps: {
-      triage: ['Valid case! Four criteria, zero doubts.'],
-      meddra: ['PT coded. LLT agonized over.'],
-      narrative: ['Narrative written. Oscar-worthy.'],
-      qc: ['QC passed! Quinn will be so proud.'],
-      submit: ['SUBMITTED! Case closed.'],
+    steps: {   // Casey's reaction when a case stage is done (a random one, never the same twice in a row)
+      triage: ['Valid case! Four criteria, zero doubts.', 'Triaged. The reporter exists, the patient exists, I exist.',
+        'Seriousness checked twice. Like Santa.', 'Day 0 noted. The clock is ticking. Politely.', 'Duplicate check: clean. For once.',
+        'Triage done. This one has a plot.', 'Valid! The minimum criteria are my maximum joy.', 'Case accepted. The inbox briefly sighs in relief.'],
+      meddra: ['PT coded. LLT agonized over.', 'Coded! MedDRA and I are on first-name terms.', 'Found the perfect LLT. I may frame it.',
+        "Coded 'felt weird' properly. Personal growth.", 'SOC, HLGT, HLT, PT, LLT. I could sing it.', 'Coding done. Max would approve. Probably.',
+        'Chose the term. Did not choose violence.', 'MedDRA browser closed. Fourteen tabs remain.'],
+      narrative: ['Narrative written. Oscar-worthy.', 'Beginning, middle, outcome. Nora would weep.', 'Chronology: flawless. Grammar: 90%.',
+        "Not one 'patient felt bad' in sight. Proud.", 'Narrative done. Twist ending: recovered.', 'All the dates line up. The universe is in balance.',
+        'Narrative complete. Pulitzer committee, call me.', 'Every abbreviation defined. QC cannot touch me.'],
+      qc: ['QC passed! Quinn will be so proud.', 'Zero findings. The red pen stays capped.', 'QC approved. I heard a distant choir.',
+        'Passed QC first try. Screenshot for the grandkids.', "Quinn said 'fine'. That's basically a medal.", 'QC complete. My case is legally beautiful.',
+        'Not a single comment about the font. A miracle.', "QC done. Consistency: chef's kiss."],
+      submit: ['SUBMITTED! Case closed.', 'Sent! Somewhere, a regulator nods.', 'Submitted on time. Frame this moment.',
+        'Case closed. Case-Closed Casey strikes again.', 'Submitted. The E2B file flew like a bird.', 'Done! One less case. Infinite more to come.',
+        'Submitted! The clock can finally rest.', 'ACK received. Best three letters in PV.'],
     },
     qcBounce: ['QC sent it back. My narrative is "vibes"?!', 'Bounced by QC. Back to the narrative.'],
     late: ['A case just went LATE. Oh no.', 'Deadline missed. I can hear Pat coming.'],
@@ -1540,12 +1573,423 @@ CONTENT.triviaBank = [
 ];
 
 /* =====================================================================
+   COLLEAGUE QUIZ BANKS (same format as the trivia bank, see the guide above CONTENT.triviaBank).
+   type 'mc' = options shuffled on screen · type 'bin' = two fixed buttons (kept in the order written).
+   Each quiz has its own no-repeat bag, so items only come back after the whole bank has been played.
+   ===================================================================== */
+CONTENT.minigames.meddra.bank = [   // Code It! with Max MedDRA: reporter's words -> best MedDRA term
+  { id: 'cq-med-001', diff: 1, type: 'mc', q: '"My head is pounding since the second tablet."', options: ["Headache", "Pyrexia", "Back pain"], answer: 0,
+    why: "Straightforward: code the symptom the reporter describes." },
+  { id: 'cq-med-002', diff: 1, type: 'mc', q: '"Felt like throwing up all morning." (did not vomit)', options: ["Nausea", "Vomiting", "Dyspepsia"], answer: 0,
+    why: "No vomiting happened, so code what was reported: nausea." },
+  { id: 'cq-med-003', diff: 1, type: 'mc', q: '"Burning up, 39.5 degrees."', options: ["Pyrexia", "Hyperhidrosis", "Chills"], answer: 0,
+    why: "Pyrexia is the MedDRA PT for fever." },
+  { id: 'cq-med-004', diff: 1, type: 'mc', q: '"Could not sleep a wink."', options: ["Insomnia", "Somnolence", "Fatigue"], answer: 0,
+    why: "Insomnia = can't sleep. Somnolence = can't stay awake." },
+  { id: 'cq-med-005', diff: 1, type: 'mc', q: '"Itchy skin everywhere, but no rash."', options: ["Pruritus", "Rash", "Dry skin"], answer: 0,
+    why: "No rash was reported, so don't add one. Pruritus it is." },
+  { id: 'cq-med-006', diff: 2, type: 'mc', q: '"My heart is racing like a hamster on a wheel." (no ECG)', options: ["Palpitations", "Bradycardia", "Chest pain"], answer: 0,
+    why: "A felt racing heart is palpitations. Tachycardia needs a measured heart rate." },
+  { id: 'cq-med-007', diff: 2, type: 'mc', q: '"Everything tastes like old coins."', options: ["Dysgeusia", "Ageusia", "Dry mouth"], answer: 0,
+    why: "Dysgeusia = distorted taste. Ageusia = no taste at all." },
+  { id: 'cq-med-008', diff: 1, type: 'mc', q: '"The pill did absolutely nothing."', options: ["Drug ineffective", "Drug interaction", "Off label use"], answer: 0,
+    why: "Lack of effect is coded as Drug ineffective." },
+  { id: 'cq-med-009', diff: 2, type: 'mc', q: '"Fell asleep in the middle of a meeting."', options: ["Somnolence", "Insomnia", "Syncope"], answer: 0,
+    why: "Falling asleep is somnolence, not fainting (syncope)." },
+  { id: 'cq-med-010', diff: 1, type: 'mc', q: '"Ringing in my ears since Tuesday."', options: ["Tinnitus", "Deafness", "Ear pain"], answer: 0,
+    why: "Ringing in the ears = tinnitus." },
+  { id: 'cq-med-011', diff: 2, type: 'mc', q: '"The whole room was spinning."', options: ["Vertigo", "Headache", "Tinnitus"], answer: 0,
+    why: "A spinning sensation is described as vertigo." },
+  { id: 'cq-med-012', diff: 1, type: 'mc', q: '"I fainted and woke up on the kitchen floor."', options: ["Syncope", "Seizure", "Vertigo"], answer: 0,
+    why: "Fainting = syncope. (Code the fall too, if an injury is reported.)" },
+  { id: 'cq-med-013', diff: 1, type: 'mc', q: '"Loose, watery stools five times a day."', options: ["Diarrhoea", "Constipation", "Abdominal pain"], answer: 0,
+    why: "Frequent watery stools = diarrhoea." },
+  { id: 'cq-med-014', diff: 1, type: 'mc', q: '"Couldn\'t go to the toilet for four days."', options: ["Constipation", "Diarrhoea", "Flatulence"], answer: 0,
+    why: "Four days without a bowel movement: constipation." },
+  { id: 'cq-med-015', diff: 2, type: 'mc', q: '"Raised itchy welts all over my arms."', options: ["Urticaria", "Pruritus", "Dry skin"], answer: 0,
+    why: "Welts or hives = urticaria. Itching alone would be pruritus." },
+  { id: 'cq-med-016', diff: 2, type: 'mc', q: '"My hair is falling out in clumps."', options: ["Alopecia", "Dry skin", "Pruritus"], answer: 0,
+    why: "Hair loss = alopecia." },
+  { id: 'cq-med-017', diff: 1, type: 'mc', q: '"My hands keep shaking."', options: ["Tremor", "Seizure", "Muscle spasms"], answer: 0,
+    why: "Involuntary shaking = tremor." },
+  { id: 'cq-med-018', diff: 2, type: 'mc', q: '"I feel down and cry all the time." (no diagnosis given)', options: ["Depressed mood", "Anxiety", "Insomnia"], answer: 0,
+    why: "Code the symptom reported. Don't upgrade it to a diagnosis like depression." },
+  { id: 'cq-med-019', diff: 2, type: 'mc', q: '"Constantly worried and restless."', options: ["Anxiety", "Depressed mood", "Somnolence"], answer: 0,
+    why: "Worry plus restlessness points to anxiety." },
+  { id: 'cq-med-020', diff: 3, type: 'mc', review: true, q: '"My blood pressure was 190/110." (no diagnosis given)', options: ["Blood pressure increased", "Hypotension", "Headache"], answer: 0,
+    why: "A reported measurement without a diagnosis usually goes to an 'increased' investigation term." },
+  { id: 'cq-med-021', diff: 2, type: 'mc', q: '"A nosebleed that wouldn\'t stop."', options: ["Epistaxis", "Haemoptysis", "Haematemesis"], answer: 0,
+    why: "Nosebleed = epistaxis." },
+  { id: 'cq-med-022', diff: 3, type: 'mc', q: '"Coughing up blood."', options: ["Haemoptysis", "Epistaxis", "Haematemesis"], answer: 0,
+    why: "Blood from the airways = haemoptysis. Vomited blood = haematemesis." },
+  { id: 'cq-med-023', diff: 3, type: 'mc', q: '"Vomiting blood."', options: ["Haematemesis", "Haemoptysis", "Melaena"], answer: 0,
+    why: "Haematemesis = vomiting blood." },
+  { id: 'cq-med-024', diff: 3, type: 'mc', q: '"Black, tarry stools."', options: ["Melaena", "Haematochezia", "Constipation"], answer: 0,
+    why: "Black, tarry stools = melaena. Fresh red blood = haematochezia." },
+  { id: 'cq-med-025', diff: 2, type: 'mc', q: '"My skin and eyes turned yellow."', options: ["Jaundice", "Pruritus", "Rash"], answer: 0,
+    why: "Yellowing of skin and eyes = jaundice." },
+  { id: 'cq-med-026', diff: 3, type: 'mc', review: true, q: '"Out of breath climbing just one flight of stairs."', options: ["Dyspnoea exertional", "Asthma", "Cough"], answer: 0,
+    why: "Breathlessness on effort has its own term: dyspnoea exertional." },
+  { id: 'cq-med-027', diff: 1, type: 'mc', q: '"Been coughing for three weeks."', options: ["Cough", "Dyspnoea", "Wheezing"], answer: 0,
+    why: "Simple and accurate: cough." },
+  { id: 'cq-med-028', diff: 3, type: 'mc', review: true, q: '"Took two tablets instead of one by mistake."', options: ["Extra dose administered", "Drug ineffective", "Drug abuse"], answer: 0,
+    why: "An accidental extra dose is a medication error, not abuse." },
+  { id: 'cq-med-029', diff: 2, type: 'mc', q: '"Used it for a condition that isn\'t on the label."', options: ["Off label use", "Drug ineffective", "Drug abuse"], answer: 0,
+    why: "Use outside the authorised indication = off label use." },
+  { id: 'cq-med-030', diff: 2, type: 'mc', q: '"Found out I was pregnant while taking it. No problems so far."', options: ["Exposure during pregnancy", "Drug ineffective", "Abortion spontaneous"], answer: 0,
+    why: "Pregnancy exposure is captured even without an adverse event." },
+  { id: 'cq-med-031', diff: 1, type: 'mc', q: '"My muscles ache all over."', options: ["Myalgia", "Arthralgia", "Back pain"], answer: 0,
+    why: "Muscle pain = myalgia. Joint pain = arthralgia." },
+  { id: 'cq-med-032', diff: 1, type: 'mc', q: '"Both my knees hurt."', options: ["Arthralgia", "Myalgia", "Joint swelling"], answer: 0,
+    why: "Joint pain = arthralgia." },
+  { id: 'cq-med-033', diff: 1, type: 'mc', q: '"Tired all the time, zero energy."', options: ["Fatigue", "Somnolence", "Insomnia"], answer: 0,
+    why: "Tiredness and lack of energy = fatigue." },
+  { id: 'cq-med-034', diff: 1, type: 'mc', q: '"Everything looks blurry."', options: ["Vision blurred", "Blindness", "Eye pain"], answer: 0,
+    why: "Don't overstate it: blurry is not blind." },
+  { id: 'cq-med-035', diff: 2, type: 'mc', q: '"Pins and needles in my fingers."', options: ["Paraesthesia", "Hypoaesthesia", "Tremor"], answer: 0,
+    why: "Tingling = paraesthesia. Reduced feeling = hypoaesthesia." },
+  { id: 'cq-med-036', diff: 3, type: 'mc', review: true, q: '"My lips went numb."', options: ["Hypoaesthesia oral", "Paraesthesia", "Dry mouth"], answer: 0,
+    why: "Numbness in the mouth area has a specific oral hypoaesthesia term." },
+  { id: 'cq-med-037', diff: 1, type: 'mc', q: '"My mouth is so dry."', options: ["Dry mouth", "Dysgeusia", "Thirst"], answer: 0,
+    why: "Keep it literal: dry mouth." },
+  { id: 'cq-med-038', diff: 2, type: 'mc', q: '"Lost my appetite completely."', options: ["Decreased appetite", "Weight decreased", "Nausea"], answer: 0,
+    why: "No weight loss was reported, just appetite: decreased appetite." },
+  { id: 'cq-med-039', diff: 1, type: 'mc', q: '"Put on 5 kg in a month."', options: ["Weight increased", "Increased appetite", "Oedema"], answer: 0,
+    why: "A reported weight gain = weight increased." },
+  { id: 'cq-med-040', diff: 3, type: 'mc', review: true, q: '"Heartburn after every dose."', options: ["Dyspepsia", "Nausea", "Abdominal pain"], answer: 0,
+    why: "'Heartburn' is a lower-level term that sits under the PT dyspepsia." },
+];
+
+CONTENT.minigames.lit.bank = [   // Abstract Blitz with Lin Literature: is this a reportable individual human case?
+  { id: 'cq-lit-001', diff: 1, type: 'bin', q: 'Mice given Compound Z showed reduced fur density.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Animal data: no human patient, so no ICSR." },
+  { id: 'cq-lit-002', diff: 1, type: 'bin', q: 'A 58-year-old man developed jaundice two weeks after starting Product A.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Identifiable patient, suspect product, adverse event: a valid literature case." },
+  { id: 'cq-lit-003', diff: 1, type: 'bin', q: 'In vitro: Compound Z inhibits an enzyme in cell cultures.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Lab data with no patient. Interesting, but not an ICSR." },
+  { id: 'cq-lit-004', diff: 2, type: 'bin', q: 'A pregnant woman exposed to Product A delivered a healthy baby.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Pregnancy exposure is a special situation to capture, even with a good outcome." },
+  { id: 'cq-lit-005', diff: 1, type: 'bin', q: 'Rats fed Product A for 90 days gained weight.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Animal study: not an individual human case." },
+  { id: 'cq-lit-006', diff: 1, type: 'bin', q: 'Two patients on Product A developed a severe rash; one was hospitalised.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Two identifiable patients with adverse events: two cases to process." },
+  { id: 'cq-lit-007', diff: 1, type: 'bin', q: 'A review of Product A manufacturing costs in 2024.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Economics, not safety." },
+  { id: 'cq-lit-008', diff: 2, type: 'bin', q: 'A child accidentally swallowed Product A tablets. No symptoms.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Accidental exposure in a child is a special situation, even without symptoms." },
+  { id: 'cq-lit-009', diff: 1, type: 'bin', q: 'Zebrafish embryos exposed to Compound Z swam in circles.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Fish are not patients. Yet." },
+  { id: 'cq-lit-010', diff: 1, type: 'bin', q: 'An elderly patient fell and broke a hip after the dose was doubled.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Identifiable patient, suspect product, serious adverse event." },
+  { id: 'cq-lit-011', diff: 1, type: 'bin', q: 'A 34-year-old woman developed hives minutes after the first dose of Product B.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Classic case report: process it." },
+  { id: 'cq-lit-012', diff: 2, type: 'bin', q: 'A patient had seizures after an overdose of Product B.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Overdose with an adverse event: reportable." },
+  { id: 'cq-lit-013', diff: 1, type: 'bin', q: 'A 70-year-old man had acute kidney injury on Product A; it improved after stopping.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "A positive dechallenge makes this case even more interesting." },
+  { id: 'cq-lit-014', diff: 2, type: 'bin', q: 'A teenager used Product C recreationally and was admitted with an arrhythmia.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Abuse or misuse with an adverse event is reportable." },
+  { id: 'cq-lit-015', diff: 1, type: 'bin', q: 'Case series: three identifiable patients developed hearing loss on Product D.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Each identifiable patient is an individual case." },
+  { id: 'cq-lit-016', diff: 2, type: 'bin', q: 'A breastfed infant was unusually drowsy while the mother took Product A.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Exposure via breast milk with an adverse event: reportable." },
+  { id: 'cq-lit-017', diff: 1, type: 'bin', q: 'A 45-year-old woman noticed hair loss three months after starting Product B.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Late onset still counts. Process it." },
+  { id: 'cq-lit-018', diff: 2, type: 'bin', q: 'A patient developed a rash after the pharmacy dispensed the wrong strength of Product A.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Medication error with an adverse event: reportable." },
+  { id: 'cq-lit-019', diff: 2, type: 'bin', q: 'The author, a 40-year-old physician, describes her own palpitations on Product A.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "The author can be both reporter and patient." },
+  { id: 'cq-lit-020', diff: 1, type: 'bin', q: 'A man with a known allergy was given Product F and developed anaphylaxis.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Serious adverse event with an identifiable patient." },
+  { id: 'cq-lit-021', diff: 2, type: 'bin', q: 'A 6-year-old given Product A off-label developed vomiting.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Off-label use with an adverse event: reportable." },
+  { id: 'cq-lit-022', diff: 2, type: 'bin', q: 'A woman became pregnant while taking Product G, an oral contraceptive.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Unintended pregnancy on a contraceptive suggests lack of efficacy: capture it." },
+  { id: 'cq-lit-023', diff: 1, type: 'bin', q: 'Tendon pain after two weeks on Product H; resolved on stopping.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Identifiable patient plus a plausible ADR." },
+  { id: 'cq-lit-024', diff: 1, type: 'bin', q: 'A 50-year-old woman had liver enzymes ten times normal on Product A.', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Significant lab abnormality in an identifiable patient." },
+  { id: 'cq-lit-025', diff: 1, type: 'bin', q: 'A budget impact model for Product A in three countries.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Pharmacoeconomics: no patients, no adverse events." },
+  { id: 'cq-lit-026', diff: 1, type: 'bin', q: "A survey of pharmacists' opinions on the new packaging colour.", options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Opinions about colour are not adverse events." },
+  { id: 'cq-lit-027', diff: 1, type: 'bin', q: 'A review of the chemical synthesis of Compound Z.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Chemistry, not safety." },
+  { id: 'cq-lit-028', diff: 1, type: 'bin', q: 'A study of Product A in dogs showing liver changes.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Animal data can inform safety, but it is not an ICSR." },
+  { id: 'cq-lit-029', diff: 3, type: 'bin', review: true, q: 'A cohort of 10,000 patients reports an overall headache rate of 2%. No individual patients described.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Aggregate data without identifiable patients is not an ICSR (but may matter for signals)." },
+  { id: 'cq-lit-030', diff: 1, type: 'bin', q: 'An editorial on the history of pharmacovigilance.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "A good read, but no cases." },
+  { id: 'cq-lit-031', diff: 2, type: 'bin', q: 'A patient took Product A for a year and reported no problems at all.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "No adverse event and no special situation: nothing to report." },
+  { id: 'cq-lit-032', diff: 3, type: 'bin', q: "A case report of rash on another company's product. No exposure to your product.", options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Your product isn't a suspect, so it isn't your case." },
+  { id: 'cq-lit-033', diff: 1, type: 'bin', q: 'A computer model predicts how Compound Z binds to its target.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "In silico data: no patient." },
+  { id: 'cq-lit-034', diff: 1, type: 'bin', q: "A marketing survey of doctors' brand awareness.", options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Brand awareness is not an adverse event." },
+  { id: 'cq-lit-035', diff: 1, type: 'bin', q: 'A study of Compound Z in yeast cells.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Yeast is not a patient." },
+  { id: 'cq-lit-036', diff: 3, type: 'bin', review: true, q: "'Some patients reportedly felt dizzy.' No patient details at all.", options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "No identifiable patient means no valid case." },
+  { id: 'cq-lit-037', diff: 1, type: 'bin', q: 'A guideline on storing Product A at room temperature.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Storage advice, not safety data." },
+  { id: 'cq-lit-038', diff: 1, type: 'bin', q: 'A plant extract study in rabbits.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Rabbits: adorable, but not ICSRs." },
+  { id: 'cq-lit-039', diff: 1, type: 'bin', q: 'A conference poster on a new tablet coating process.', options: ["Relevant case", "Not relevant"], answer: 1,
+    why: "Manufacturing technology: no patients involved." },
+  { id: 'cq-lit-040', diff: 2, type: 'bin', q: 'A 29-year-old man had a severe headache after Product B; the authors call it "possibly related".', options: ["Relevant case", "Not relevant"], answer: 0,
+    why: "Author's causality doesn't change validity: identifiable patient, product and event." },
+];
+
+CONTENT.minigames.serious.bank = [   // Serious or Not? with Nora Narrative: apply the ICH E2A seriousness criteria
+  { id: 'cq-ser-001', diff: 1, type: 'bin', q: 'Admitted to hospital overnight for liver failure.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Hospitalisation is a seriousness criterion." },
+  { id: 'cq-ser-002', diff: 1, type: 'bin', q: 'Mild headache, gone after a nap.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "No seriousness criterion met." },
+  { id: 'cq-ser-003', diff: 1, type: 'bin', q: 'Anaphylaxis in the ER. Life-threatening.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Life-threatening = at immediate risk of death at the time of the event." },
+  { id: 'cq-ser-004', diff: 1, type: 'bin', q: 'Nausea for two days, no treatment needed.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Unpleasant, but not serious." },
+  { id: 'cq-ser-005', diff: 1, type: 'bin', q: 'A baby born with a heart defect after exposure in pregnancy.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Congenital anomaly/birth defect is a seriousness criterion." },
+  { id: 'cq-ser-006', diff: 1, type: 'bin', q: 'The patient died. Relationship to the drug unknown.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Death is serious, whatever the causality." },
+  { id: 'cq-ser-007', diff: 1, type: 'bin', q: 'Itchy rash on one arm, gone within a week.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "No criterion met." },
+  { id: 'cq-ser-008', diff: 2, type: 'bin', q: 'Permanent hearing loss after treatment.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Persistent or significant disability/incapacity." },
+  { id: 'cq-ser-009', diff: 1, type: 'bin', q: 'Felt a bit tired after the dose.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Common and non-serious." },
+  { id: 'cq-ser-010', diff: 2, type: 'bin', q: 'A seizure treated in the ER to prevent a worse outcome.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Medically important event: medical judgement makes it serious." },
+  { id: 'cq-ser-011', diff: 2, type: 'bin', q: 'Hospital stay extended by three days because of a drug rash.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Prolongation of an existing hospitalisation counts." },
+  { id: 'cq-ser-012', diff: 3, type: 'bin', q: '"SEVERE toothache," says the reporter. No treatment was needed.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Severe is intensity, not seriousness. No criterion met." },
+  { id: 'cq-ser-013', diff: 2, type: 'bin', q: 'Went to the GP for a rash and got a cream.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "An outpatient visit is not hospitalisation." },
+  { id: 'cq-ser-014', diff: 3, type: 'bin', q: 'Seen in the ER for a mild allergic rash, sent home after two hours.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "An ER visit alone is not hospitalisation. Judge the event itself." },
+  { id: 'cq-ser-015', diff: 3, type: 'bin', q: 'A planned hospital admission for elective surgery booked before the drug was started.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "The hospitalisation must be caused by the event. A planned admission isn't." },
+  { id: 'cq-ser-016', diff: 2, type: 'bin', q: 'Stevens-Johnson syndrome, treated as an outpatient.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "SJS is a medically important event, even without admission." },
+  { id: 'cq-ser-017', diff: 2, type: 'bin', q: 'Agranulocytosis requiring close monitoring.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Medically important: it could quickly become life-threatening." },
+  { id: 'cq-ser-018', diff: 2, type: 'bin', q: 'A suicide attempt while on treatment.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Considered a medically important event." },
+  { id: 'cq-ser-019', diff: 2, type: 'bin', q: 'Permanently unable to walk after a stroke.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Persistent disability." },
+  { id: 'cq-ser-020', diff: 1, type: 'bin', q: 'Admitted for severe dehydration from diarrhoea.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Hospitalisation." },
+  { id: 'cq-ser-021', diff: 1, type: 'bin', q: 'A pulmonary embolism treated in hospital.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Hospitalised, and potentially life-threatening." },
+  { id: 'cq-ser-022', diff: 1, type: 'bin', q: 'Cleft lip in a baby exposed during pregnancy.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Congenital anomaly." },
+  { id: 'cq-ser-023', diff: 1, type: 'bin', q: 'An overdose that led to a coma.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Life-threatening." },
+  { id: 'cq-ser-024', diff: 2, type: 'bin', q: 'Drug-induced liver injury requiring a liver transplant.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Hospitalisation and life-threatening: very serious." },
+  { id: 'cq-ser-025', diff: 2, type: 'bin', q: 'Lost the sight in one eye.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Persistent or significant incapacity." },
+  { id: 'cq-ser-026', diff: 3, type: 'bin', q: 'The patient died in a car accident while drowsy on the drug.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Death is a seriousness criterion. Causality is assessed separately." },
+  { id: 'cq-ser-027', diff: 2, type: 'bin', q: 'Anaphylaxis treated with adrenaline in the ER; home the same day.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Anaphylaxis is medically important even without admission." },
+  { id: 'cq-ser-028', diff: 1, type: 'bin', q: 'Dry mouth for a week.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "No criterion met." },
+  { id: 'cq-ser-029', diff: 1, type: 'bin', q: 'Trouble sleeping for three nights.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Non-serious insomnia." },
+  { id: 'cq-ser-030', diff: 1, type: 'bin', q: 'Mild diarrhoea that settled on its own.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Self-limiting and non-serious." },
+  { id: 'cq-ser-031', diff: 1, type: 'bin', q: 'Noticed some hair thinning.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Distressing, but no seriousness criterion." },
+  { id: 'cq-ser-032', diff: 1, type: 'bin', q: 'A 2 cm red patch at the injection site.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Local reaction, non-serious." },
+  { id: 'cq-ser-033', diff: 1, type: 'bin', q: 'Dizzy when standing up; resolved quickly.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Non-serious." },
+  { id: 'cq-ser-034', diff: 1, type: 'bin', q: 'Gained 2 kg over two months.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Non-serious." },
+  { id: 'cq-ser-035', diff: 1, type: 'bin', q: 'A metallic taste in the mouth.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Non-serious dysgeusia." },
+  { id: 'cq-ser-036', diff: 3, type: 'bin', review: true, q: 'Stayed overnight in hospital only because no carer was available at home. No medical need.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "An admission for social reasons, with no medical need, is generally not a seriousness criterion." },
+  { id: 'cq-ser-037', diff: 1, type: 'bin', q: 'Mild constipation for a few days.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Non-serious." },
+  { id: 'cq-ser-038', diff: 1, type: 'bin', q: 'A cold sweat for one afternoon.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "Non-serious." },
+  { id: 'cq-ser-039', diff: 3, type: 'bin', q: 'A bad headache kept the patient off work for one day.', options: ["Serious", "Non-serious"], answer: 1,
+    why: "One day off work is not persistent or significant incapacity." },
+  { id: 'cq-ser-040', diff: 2, type: 'bin', q: 'Taken to intensive care with severe low blood pressure.', options: ["Serious", "Non-serious"], answer: 0,
+    why: "Hospitalisation, and likely life-threatening." },
+];
+
+CONTENT.minigames.qc.bank = [   // Spot the Error with Quinn QC: which field would fail QC?
+  { id: 'cq-qc-001', diff: 1, type: 'mc', q: '', options: ["Age: 250 years", "Sex: Female", "Event: Headache", "Outcome: Recovered"], answer: 0,
+    why: "Impressive, but no." },
+  { id: 'cq-qc-002', diff: 1, type: 'mc', q: '', options: ["Age: 6 months", "Occupation: Senior accountant", "Event: Fever", "Reporter: Parent"], answer: 1,
+    why: "A six-month-old senior accountant would be quite the prodigy." },
+  { id: 'cq-qc-003', diff: 2, type: 'mc', q: '', options: ["Event: Hospitalised for 5 days", "Seriousness: Non-serious", "Outcome: Recovered", "Age: 47"], answer: 1,
+    why: "Hospitalisation makes it serious." },
+  { id: 'cq-qc-004', diff: 1, type: 'mc', q: '', options: ["Drug: Product A", 'Patient: "some guy"', "Event: Nausea", "Reporter: Pharmacist"], answer: 1,
+    why: "Not an identifiable patient. Follow up." },
+  { id: 'cq-qc-005', diff: 1, type: 'mc', q: '', options: ["Dose: 5000 tablets daily", "Route: Oral", "Event: Dizziness", "Sex: Female"], answer: 0,
+    why: "Check the units. Then check them again." },
+  { id: 'cq-qc-006', diff: 1, type: 'mc', q: '', options: ["Event: Headache", "Coded PT: Fracture", "Outcome: Resolved", "Age: 41"], answer: 1,
+    why: "The coding must match the verbatim." },
+  { id: 'cq-qc-007', diff: 2, type: 'mc', q: '', options: ["Outcome: Fatal", "Seriousness: Non-serious", "Event: Stroke", "Age: 60"], answer: 1,
+    why: "A fatal outcome is always serious." },
+  { id: 'cq-qc-008', diff: 3, type: 'mc', q: '', options: ["Onset: 1 week BEFORE the first dose (causality: related)", "Drug: Product A", "Event: Insomnia", "Reporter: Consumer"], answer: 0,
+    why: "An event before the first dose can't be 'related' without a very good story." },
+  { id: 'cq-qc-009', diff: 2, type: 'mc', q: '', options: ["Drug start: 10 March", "Drug stop: 2 March", "Event onset: 5 March", "Outcome: Recovered"], answer: 1,
+    why: "The drug can't stop before it starts." },
+  { id: 'cq-qc-010', diff: 1, type: 'mc', q: '', options: ["Height: 175 cm", "Weight: 750 kg", "Event: Dizziness", "Age: 42"], answer: 1,
+    why: "One zero too many." },
+  { id: 'cq-qc-011', diff: 2, type: 'mc', q: '', options: ["Formulation: Tablet", "Route: Into the ear", "Dose: 10 mg", "Event: Nausea"], answer: 1,
+    why: "Tablets rarely go in ears. Please don't." },
+  { id: 'cq-qc-012', diff: 1, type: 'mc', q: '', options: ["Reporter: Pharmacist", "Country: Atlantis", "Event: Rash", "Age: 52"], answer: 1,
+    why: "Atlantis is not an EEA country. Or any country." },
+  { id: 'cq-qc-013', diff: 2, type: 'mc', q: '', options: ["Event: Headache", "Onset: 3 May", "Recovery date: 1 May", "Outcome: Recovered"], answer: 2,
+    why: "Recovered two days before it started? Time travel is not a MedDRA term." },
+  { id: 'cq-qc-014', diff: 2, type: 'mc', q: '', options: ["Event: Nausea", "Seriousness: Life-threatening", "Outcome: Resolved in 10 min, no treatment", "Age: 30"], answer: 1,
+    why: "Ten minutes of nausea is not life-threatening." },
+  { id: 'cq-qc-015', diff: 3, type: 'mc', q: '', options: ["Patient initials: J.D.", "Patient home address: 12 Elm Street", "Event: Rash", "Reporter: HCP"], answer: 1,
+    why: "Only minimal identifiers belong in a case. Data protection matters." },
+  { id: 'cq-qc-016', diff: 1, type: 'mc', q: '', options: ["Event: Vomiting", "Coded PT: Nausea", "Onset: Day 2", "Outcome: Recovered"], answer: 1,
+    why: "Vomiting was reported, so code vomiting." },
+  { id: 'cq-qc-017', diff: 2, type: 'mc', q: '', options: ["Dose: 20 mg once daily", "Daily dose: 200 mg", "Event: Dizziness", "Route: Oral"], answer: 1,
+    why: "20 mg once a day is 20 mg a day." },
+  { id: 'cq-qc-018', diff: 1, type: 'mc', q: '', options: ["Suspect product: Product A", 'Batch number: "yes"', "Event: Rash", "Dose: 10 mg"], answer: 1,
+    why: "Yes, the batch number exists. But what is it?" },
+  { id: 'cq-qc-019', diff: 1, type: 'mc', q: '', options: ["Event: Pyrexia", "Temperature: 3.95 °C", "Onset: Day 1", "Outcome: Recovered"], answer: 1,
+    why: "Decimal point in the wrong place. The patient would be an ice cube." },
+  { id: 'cq-qc-020', diff: 2, type: 'mc', q: '', options: ['Narrative: "Patient felt bad."', "Event: Hepatic failure", "Seriousness: Hospitalisation", "Age: 61"], answer: 0,
+    why: "A narrative needs a story: what, when, treatment, outcome." },
+  { id: 'cq-qc-021', diff: 2, type: 'mc', q: '', options: ["Event: Rash", "Onset: 3 days after the first dose", "Time to onset: 3 years", "Outcome: Recovering"], answer: 2,
+    why: "3 days, not 3 years." },
+  { id: 'cq-qc-022', diff: 3, type: 'mc', q: '', options: ["Weight: 70 kg", "Dose: 10 mg/kg", "Total dose: 7 g", "Event: Headache"], answer: 2,
+    why: "10 mg/kg x 70 kg = 700 mg, not 7 g." },
+  { id: 'cq-qc-023', diff: 2, type: 'mc', q: '', options: ["Pregnancy: Yes, week 12", "Expected due date: last year", "Event: Nausea", "Age: 31"], answer: 1,
+    why: "A due date in the past doesn't fit week 12." },
+  { id: 'cq-qc-024', diff: 1, type: 'mc', q: '', options: ["Reporter country: France", "Report language: French", "Event: Headache", "Receipt date: 31 February"], answer: 3,
+    why: "February has 28 or 29 days. Not 31." },
+  { id: 'cq-qc-025', diff: 2, type: 'mc', q: '', options: ["Event: Anaphylaxis", "Seriousness: Non-serious", "Treatment: Adrenaline in the ER", "Outcome: Recovered"], answer: 1,
+    why: "Anaphylaxis treated with adrenaline is a medically important event." },
+  { id: 'cq-qc-026', diff: 2, type: 'mc', q: '', options: ["Indication: Hypertension", "Suspect drug: Product A", "Concomitant drug: Product A", "Event: Dizziness"], answer: 2,
+    why: "A drug can't be both suspect and concomitant in the same case." },
+  { id: 'cq-qc-027', diff: 2, type: 'mc', q: '', options: ["Outcome: Recovered with sequelae", "Sequelae: None", "Event: Stroke", "Age: 66"], answer: 1,
+    why: "'With sequelae' means there are some. Describe them." },
+  { id: 'cq-qc-028', diff: 1, type: 'mc', q: '', options: ["Case ID: AE-1042", "Linked duplicate: AE-1042", "Event: Cough", "Age: 38"], answer: 1,
+    why: "A case can't be its own duplicate." },
+  { id: 'cq-qc-029', diff: 3, type: 'mc', q: '', options: ["Dechallenge: Positive", "Drug stopped: No, still taking it", "Event: Rash", "Outcome: Recovered"], answer: 0,
+    why: "A dechallenge needs the drug to be stopped first." },
+  { id: 'cq-qc-030', diff: 2, type: 'mc', q: '', options: ["Event: Headache", "Onset: 12:00", "Stopped: 11:00 the same day", "Outcome: Recovered"], answer: 2,
+    why: "An event can't stop before it starts." },
+  { id: 'cq-qc-031', diff: 1, type: 'mc', q: '', options: ["Reporter: Patient", "Relationship: Self", "Event: Rash", "Age: -3"], answer: 3,
+    why: "Negative ages are not supported. Yet." },
+  { id: 'cq-qc-032', diff: 3, type: 'mc', q: '', options: ['Verbatim: "tummy ache"', "Coded PT: Abdominal pain", "Outcome: Recovered", "Primary SOC: Cardiac disorders"], answer: 3,
+    why: "Abdominal pain belongs to Gastrointestinal disorders." },
+  { id: 'cq-qc-033', diff: 1, type: 'mc', q: '', options: ["Dose: 1 tablet", "Frequency: 48 times a day", "Event: Insomnia", "Route: Oral"], answer: 1,
+    why: "Twice an hour, around the clock? Probably a typo." },
+  { id: 'cq-qc-034', diff: 1, type: 'mc', q: '', options: ["Drug start: 2024", "Patient year of birth: 2030", "Event: Rash", "Reporter: GP"], answer: 1,
+    why: "Born in the future. Very advanced patient." },
+  { id: 'cq-qc-035', diff: 1, type: 'mc', q: '', options: ["Event: Rash", "Body site: Left elbow", "Photo: Attached", "Rash colour: Invisible"], answer: 3,
+    why: "An invisible rash on a photo. Bold." },
+  { id: 'cq-qc-036', diff: 2, type: 'mc', q: '', options: ["Study number: CT-001", "Case type: Spontaneous", "Report source: Clinical study", "Event: Fatigue"], answer: 1,
+    why: "A case from a clinical study is a study case, not a spontaneous one." },
+  { id: 'cq-qc-037', diff: 1, type: 'mc', q: '', options: ["Weight: 70 kg", "Height: 17.5 m", "BMI: 23", "Event: Nausea"], answer: 1,
+    why: "17.5 metres tall would be a new record. 1.75 m, surely." },
+  { id: 'cq-qc-038', diff: 2, type: 'mc', q: '', options: ["Event onset: 1 June", "Report received: 3 June", "Submitted to authority: 1 May", "Seriousness: Serious"], answer: 2,
+    why: "You can't submit a case before you receive it." },
+  { id: 'cq-qc-039', diff: 2, type: 'mc', q: '', options: ["Special situation: Pregnancy exposure", "Patient age: 29", "Pregnancy week: 64", "Outcome: Ongoing"], answer: 2,
+    why: "A pregnancy lasts about 40 weeks." },
+  { id: 'cq-qc-040', diff: 2, type: 'mc', q: '', options: ["Number of patients in this case: 12", "Patient age: 40", "Event: Rash", "Reporter: GP"], answer: 0,
+    why: "One ICSR = one patient. Twelve patients = twelve cases." },
+];
+
+/* =====================================================================
+   NOTICEBOARD: more pinned corporate emails (all fictional). The board shows each one once
+   before any repeats (MailBag, remembered in localStorage). `from` is optional.
+   ===================================================================== */
+CONTENT.mails.push(
+  { subject: 'Kitchen fridge clean-out: Friday 16:00', from: 'Facilities <facilities@corp.example>',
+    body: 'Anything left in the fridge after 16:00 on Friday will be disposed of.\n\nThis includes the container labelled "DO NOT THROW - EXPERIMENT". We checked. It is lasagne. It is from March.\n\nCausality with the smell: certain.' },
+  { subject: 'Congratulations: 1,000,000 cases processed!', body: 'Dear all,\n\nOur team has processed its one millionth case. To celebrate, every team member will receive one (1) sticker.\n\nStickers must be applied within 15 calendar days of receipt.' },
+  { subject: 'Lost: one MedDRA browser tab', body: 'Has anyone seen my MedDRA browser tab? It was open for 4 years. It knew things.\n\nIf found, please do not close it. It has feelings and 63 unsaved searches.' },
+  { subject: 'Reminder: the coffee machine is not a reporter', from: 'Quality Team <quality@corp.example>',
+    body: 'Hi all,\n\nPlease stop logging "the coffee machine made a funny noise" as an adverse event.\n\nIt has no identifiable patient, no suspect drug and, according to Facilities, no soul.' },
+  { subject: 'Out of office: Printer 2', from: 'Printer 2 <printer2@corp.example>',
+    body: 'Thank you for your print job.\n\nI am currently out of the office with a paper jam and limited access to toner. I will respond to your job when I return, possibly in the wrong tray.\n\nFor urgent printing, please contact Printer 3 (Senior Paper Jam Specialist).' },
+  { subject: 'New! Wellness Wednesday', body: 'Starting this week, every Wednesday is Wellness Wednesday.\n\nActivities include: deep breathing, stretching and a guided meditation titled "Your Deadline Is A Construct".\n\nAttendance will be tracked in a spreadsheet, for wellness.' },
+  { subject: 'Please stop naming the plants after SOPs', body: 'Team,\n\nThe plant by the window is not called "SOP-042 Rev. 3". It is called Gerald.\n\nGerald has asked for this to be escalated.' },
+  { subject: 'Your mailbox is 99% full', from: 'IT Service Desk <it@corp.example>',
+    body: 'Your mailbox is almost full.\n\nTo free up space, please delete the 4,211 emails titled "Re: Re: Re: Fwd: Reconciliation".\n\nThis message has been sent 12 times to make sure you saw it.' },
+  { subject: 'Audit next week: act natural', body: 'Hi everyone,\n\nWe have an audit next week. Please act natural.\n\nNatural means: desks tidy, SOPs signed, training complete, and absolutely no one saying "we usually do it later".\n\nPractise your natural face in the mirror in the WC.' },
+  { subject: 'The Great Bake Off: PV Edition', body: 'Entries are open for the annual Bake Off!\n\nThis year\'s theme is "Signals". Last year\'s winner, the MedDRA Hierarchy Layer Cake (5 layers, SOC to LLT), sets a high bar.\n\nAll bakes must list ingredients. Undeclared nuts will be reported as a serious case.' },
+  { subject: 'Clarification: "ASAP" is not a regulatory timeline', body: 'Dear colleagues,\n\nPlease note that ASAP, "end of day-ish", and "whenever you get a sec" are not valid reporting timelines.\n\nValid timelines are 7 and 15 days. And lunch, which is 30 minutes.' },
+  { subject: 'Now hiring: office DJ', body: 'Following feedback, the open-plan speaker will no longer play "The Final Countdown" when a case goes late.\n\nWe are looking for a volunteer DJ. The approved genre list has been sent for review and is currently in QC.' },
+  { subject: 'Parking update', from: 'Facilities <facilities@corp.example>',
+    body: 'Parking spaces 1-40 are now reserved for visitors.\n\nParking spaces 41-42 are reserved for staff.\n\nWe encourage everyone to cycle, walk, or develop the ability to teleport.' },
+  { subject: 'Re: Who keeps changing the thermostat?', body: 'To whoever keeps setting the thermostat to 16 degrees:\n\nThe server room called. It says it is fine, thanks.\n\nThe rest of us have started wearing our winter coats to triage.' },
+  { subject: 'Congratulations to our Narrative of the Month!', body: 'This month\'s award goes to a narrative that told the whole story in chronological order, used the reporter\'s words, and did not start with "Patient is a patient".\n\nThe author gets a trophy and 10 minutes of undivided praise from QC.' },
+  { subject: 'Mandatory training: "Recognising Mandatory Training"', from: 'Learning & Development <learning@corp.example>',
+    body: 'A new mandatory module is now available: "How To Recognise Mandatory Training".\n\nEstimated time: 45 minutes. The quiz at the end has 1 question: "Was this mandatory?"' },
+  { subject: 'Dress code for the all-hands', body: 'For Thursday\'s all-hands, please wear something in the company colours.\n\nIf you do not own anything in the company colours, a lanyard counts. Two lanyards count as business formal.' },
+  { subject: 'Found in meeting room: one very important notebook', body: 'A notebook was found in the meeting room. It contains:\n\n- 14 pages of doodles of MedDRA SOCs as cartoon animals\n- the word "SIGNAL??" circled 9 times\n- a very good drawing of a cat\n\nPlease collect it from reception. We have made photocopies of the cat.' },
+  { subject: 'The vending machine owes me 1.50', body: 'To whom it may concern,\n\nThe vending machine accepted my coins and gave me nothing. I have raised a deviation.\n\nRoot cause: machine. Corrective action: kicking it gently. Preventive action: bringing a banana.' },
+  { subject: 'Birthday cake in the kitchen!', body: 'It is someone\'s birthday! We are not sure whose. The card was signed by 38 people and addressed to "you!".\n\nCake is in the kitchen. Please do not code it as "Weight increased".' },
+  { subject: 'New database feature: autosave', from: 'Safety Systems Team <systems@corp.example>',
+    body: 'Great news! The safety database now autosaves every 30 seconds.\n\nIt also now logs you out every 29 seconds. We are looking into it.' },
+  { subject: 'Reply-all etiquette reminder', body: 'Dear All,\n\nPlease do not reply-all to company-wide emails.\n\nThis includes replying-all to this email to say "please do not reply-all". You know who you are. All 212 of you.' },
+  { subject: 'Emergency! The good stapler is missing', body: 'The red stapler from the printer area is missing. It is the only one that works.\n\nIf you have it, please return it. No questions asked. Some questions may be asked. A CAPA has been drafted.' },
+  { subject: 'Quiet zone pilot', body: 'We are piloting a Quiet Zone in the open-plan area.\n\nIn the Quiet Zone, please do not talk, type loudly, or sigh at your case queue. Deep sighs may be taken in the break room, which is now the Sigh Zone.' },
+  { subject: 'Updated organisational chart', body: 'Please find attached the updated org chart.\n\nIt is 14 pages long and shaped like the MedDRA hierarchy. You are an LLT. Congratulations.' },
+  { subject: 'Book club: this month\'s pick', body: 'This month our book club is reading "ICH E2B(R3): The Director\'s Cut".\n\nWe will discuss chapter 4 over tea. Spoiler: the message header is valid.' },
+  { subject: 'Weekly signal meeting moved (again)', body: 'The weekly signal meeting has moved from Tuesday 10:00 to Tuesday 10:15, then to Wednesday, then back to Tuesday 10:00.\n\nPlease update your calendars. And your calendars\' calendars.' },
+  { subject: 'Survey: how are we doing?', from: 'People Team <people@corp.example>',
+    body: 'Please take 2 minutes to complete our employee survey.\n\nThe survey has 118 questions. Question 118 asks whether the survey was too long.' },
+  { subject: 'Kudos wall is now open!', body: 'Want to thank a colleague? Pin a note on this board!\n\nExamples:\n"Thanks for fixing my narrative before QC saw it."\n"Thanks for the last donut. I know it was hard."\n"Thanks to whoever unjammed Printer 3. You are a hero."' },
+  { subject: 'Lift out of order', from: 'Facilities <facilities@corp.example>',
+    body: 'The lift is out of order. Please use the stairs.\n\nThe stairs are also out of order: they only go up. We are investigating.' },
+  { subject: 'Summer party: save the date!', body: 'The summer party will be held on the rooftop terrace.\n\nThe rooftop terrace does not exist yet. Construction starts next spring. Please save the date anyway; we are optimistic.' },
+  { subject: 'On the use of CAPITAL LETTERS in narratives', from: 'Quality Team <quality@corp.example>',
+    body: 'Friendly reminder: narratives should be written in sentence case.\n\nIT IS NOT NECESSARY TO SHOUT THE ONSET DATE. WE CAN ALL HEAR IT JUST FINE.' },
+  { subject: 'The microwave queue system', body: 'To reduce lunchtime conflict, microwave slots are now booked through a triage system.\n\nSerious lunches (soup) get priority. Non-serious lunches (popcorn) are processed within 15 minutes.' },
+  { subject: 'Welcome our new colleague: the robot vacuum', body: 'Please welcome the robot vacuum to the team!\n\nIt will patrol the office every evening. It has already been added to 3 distribution lists and invited to a meeting about meetings.' },
+  { subject: 'Password reminder (please do not reply with your password)', from: 'IT Service Desk <it@corp.example>',
+    body: 'We will never ask for your password by email.\n\nThank you to the 14 people who replied to the last reminder with their password anyway. You have been enrolled in a short training.' },
+  { subject: 'Fun fact Friday', body: 'Did you know? If you printed every SOP in this building and laid them end to end, you would need to sign a training record for each page.\n\nHave a great weekend!' },
+  { subject: 'Plant-watering rota', body: 'Gerald (the plant) needs water on Mondays and Thursdays.\n\nThe rota is attached. It has been through two reviews and one approval cycle. Gerald did not survive the second review. Please welcome Gerald II.' },
+  { subject: 'Meeting room bookings', body: 'Please do not book the meeting room for "focus time" and then hold a 9-person meeting in it.\n\nAlso, whoever booked it from now until 2031 under the name "TBD": we see you.' },
+);
+
+/* =====================================================================
    HELPERS
    ===================================================================== */
 const $ = (s) => document.querySelector(s);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+/** Like pick(), but never returns the same item twice in a row for the same key. */
+const _lastPick = {};
+const pickFresh = (arr, key) => {
+  if (arr.length < 2) return arr[0];
+  let v; do { v = pick(arr); } while (v === _lastPick[key]);
+  return (_lastPick[key] = v);
+};
+/** Cycles through a list in random order before repeating (one bag per key, for this session). */
+const _bags = {};
+const drawFromBag = (arr, key) => {
+  let b = _bags[key];
+  if (!b || !b.length) {
+    b = _bags[key] = arr.map((_, i) => i).sort(() => Math.random() - 0.5);
+    if (arr.length > 1 && b[b.length - 1] === _lastPick[key]) b.unshift(b.pop());
+  }
+  const i = b.pop(); _lastPick[key] = i;
+  return arr[i];
+};
 const STAT_KEYS = Object.keys(CONFIG.stats);
 const Store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -1574,8 +2018,8 @@ const ZONES = {
 const DOORS = [[8, 7, 2, 1], [17, 7, 2, 1], [25, 7, 1, 1], [30, 7, 2, 1], [6, 18, 2, 1], [22, 18, 3, 1]];
 // Furniture letters: D desk, M my desk, C coffee machine, K counter, F fridge, k kitchen table, T meeting table,
 // W whiteboard, H shelf, X manager desk, Z director desk, P printer, s sofa, v TV, g ping pong, a arcade, p plant, w water cooler,
-// L toilet, n sink, V vending machine
-const INTERACT_TYPES = new Set(['M', 'C', 'P', 'F', 'a', 'v', 'W', 'T', 'X', 'Z', 's', 'w', 'k', 'H', 'D', 'p', 'g', 'K', 'L', 'n', 'V']);
+// L toilet, n sink, V vending machine, B noticeboard
+const INTERACT_TYPES = new Set(['M', 'C', 'P', 'F', 'a', 'v', 'W', 'T', 'X', 'Z', 's', 'w', 'k', 'H', 'D', 'p', 'g', 'K', 'L', 'n', 'V', 'B']);
 
 function buildMap() {
   for (let y = 0; y < MAP_H; y++) { GRID[y] = Array(MAP_W).fill('#'); FLOOR[y] = Array(MAP_W).fill('open'); }
@@ -1606,6 +2050,7 @@ function buildMap() {
   place('K', 1, 24, 7, 1); place('C', 8, 24, 2, 1); place('K', 10, 24, 3, 1); place('F', 13, 23, 2, 2); place('k', 5, 20, 3, 2);
   // break area
   place('v', 19, 19, 3, 1); place('s', 18, 22, 5, 1); place('g', 28, 21, 5, 2); place('a', 37, 19, 1, 2); place('p', 16, 24); place('p', 38, 24);
+  place('B', 26, 19, 3, 1);   // noticeboard with the pinned corporate emails
   // desks remember which side the chair is on
   for (const o of OBJECTS) if (o.type === 'D' || o.type === 'M') o.sitterAbove = walkable(o.x, o.y - 1);
   for (const o of OBJECTS) if (o.type === 'C') o.label = 'COFFEE';
@@ -1704,11 +2149,13 @@ function startStep(e, dir, dur) {
   const [dx, dy] = DIRS[dir], nx = e.tx + dx, ny = e.ty + dy;
   if (!canEnter(e, nx, ny)) return false;
   e.fx = e.tx; e.fy = e.ty; e.tx = nx; e.ty = ny;
-  e.moving = true; e.moveT = 0; e.moveDur = dur; e.foot ^= 1;
+  // start with any time left over from the step that just ended, so walking never stutters between tiles
+  e.moving = true; e.moveT = Math.min(e.carry || 0, dur * 0.9); e.carry = 0; e.moveDur = dur; e.foot ^= 1;
   return true;
 }
 function updateStep(e, dt) {
-  if (e.moving) { e.moveT += dt; if (e.moveT >= e.moveDur) { e.moving = false; e.fx = e.tx; e.fy = e.ty; } }
+  if (!e.moving) e.carry = 0;
+  else { e.moveT += dt; if (e.moveT >= e.moveDur) { e.carry = e.moveT - e.moveDur; e.moving = false; e.fx = e.tx; e.fy = e.ty; } }
   syncPixel(e);
 }
 /** Follow e.path one tile at a time; waits (and eventually re-plans) when someone is in the way. */
@@ -1752,6 +2199,8 @@ const S = {
   mode: 'title',          // title | playing | dialog | scene | minigame | paused | gameover
   mgReady: {},             // mini-game id -> time it can be played again
   triviaStreak: 0,         // PV Trivia streak (carries across trivia games within a shift)
+  quizStreaks: {},         // colleague quiz id -> streak
+  lull: false,             // true while the case waves are in a quiet stretch
   time: 0, day: 1, stats: {},
   cases: [], nextCaseAt: 0, caseSeq: 0, activeId: null, casesVersion: 0, onTime: 0, lateCount: 0, submitted: 0,
   coffeeReady: {}, brewing: null, toiletReadyAt: 0, vendReadyAt: 0, printerReadyAt: 0, printerJamUntil: 0, propReady: {}, dbDownUntil: 0,
@@ -1774,7 +2223,7 @@ function resetGame() {
     overloadT: 0, breakT: 0, breakScolded: false, working: false, target: null,
     event: null, nextEventAt: rand(CONFIG.events.firstMin, CONFIG.events.firstMax), lastEventId: null, meeting: null,
     scoldQueue: [], approaching: null, scoldReadyAt: 0, directorT: CONFIG.director.checkEvery, lastLowCompAt: -999,
-    dialog: null, scene: null, deathCause: null, score: 0, newHi: false, mgReady: {}, triviaStreak: 0 });
+    dialog: null, scene: null, deathCause: null, score: 0, newHi: false, mgReady: {}, triviaStreak: 0, quizStreaks: {}, lull: false });
   S.casesVersion++;
   for (const e of ALL) {
     placeEntity(e, e.home.tx, e.home.ty, e.home.dir);
@@ -1865,10 +2314,7 @@ function chooseSnack(ch) {
 }
 function openMail() {
   if (SIM) return;
-  const list = CONTENT.mails;
-  let m = pick(list);
-  if (list.length > 1) while (m === S.lastMail) m = pick(list);
-  S.lastMail = m;
+  const m = MailBag.draw();   // no repeats until every pinned email has been read
   S.mode = 'mail';
   UI.showMail(m);
   sfx.newCase();
@@ -2019,7 +2465,8 @@ function interact(target) {
     case 'P': return usePrinter();
     case 'L': return useToilet();
     case 'V': return useVending();
-    case 'v': return openMail();
+    case 'v': return startWhack();
+    case 'B': return openMail();
     case 'a': return startTrivia();
     case 'g': {
       if (!minigameReady('pong')) { say('The paddles need a rest. Try again in a bit.'); return; }
@@ -2141,7 +2588,7 @@ function completeStep(c) {
   }
   c.step++; c.progress = 0; S.casesVersion++;
   if (c.step >= STEPS.length) return submitCase(c);
-  if (!SIM) { pop(`${step.label} DONE`, '#39ff88'); sfx.stepDone(); say(pick(CONTENT.lines.steps[step.id])); V.workSayT = 4; }
+  if (!SIM) { pop(`${step.label} DONE`, '#39ff88'); sfx.stepDone(); say(pickFresh(CONTENT.lines.steps[step.id], 'step-' + step.id)); V.workSayT = 4; }
 }
 function submitCase(c) {
   S.cases.splice(S.cases.indexOf(c), 1); S.casesVersion++; S.submitted++;
@@ -2149,20 +2596,26 @@ function submitCase(c) {
   if (!c.late) {
     S.onTime++;
     applyEffects(CONFIG.cases.onTime);
-    if (!SIM) { pop(`+${CONFIG.score.perCase} ON TIME!`, '#39ff88', 3); sfx.submit(); say(pick(CONTENT.lines.steps.submit)); V.happyUntil = V.t + 1.5;
+    if (!SIM) { pop(`+${CONFIG.score.perCase} ON TIME!`, '#39ff88', 3); sfx.submit(); say(pickFresh(CONTENT.lines.steps.submit, 'step-submit')); V.happyUntil = V.t + 1.5;
       for (let i = 0; i < 10; i++) emit('star', PLAYER.x + rand(-20, 20), PLAYER.y - 40, { vx: rand(-60, 60), vy: rand(-90, -30), life: 0.8 }); }
   } else {
     applyEffects(CONFIG.cases.lateSubmit);
     if (!SIM) { pop('SUBMITTED (LATE)', '#ff9d2e', 3); sfx.stepDone(); }
   }
 }
+/** Arrivals speed up a little each day (capped) and come in waves, so there are quiet stretches for coffee and games. */
+function caseWave() { const C = CONFIG.cases; return 1 + C.waveAmp * Math.sin(2 * Math.PI * S.time / C.waveSeconds); }
+function caseRate() { const D = CONFIG.difficulty; return Math.min(D.maxArrivalMult, 1 + (S.day - 1) * D.arrivalPerDay) * caseWave(); }
 function updateCases() {
   const C = CONFIG.cases;
   if (S.time >= S.nextCaseAt) {
-    spawnCase({});
-    const f = Math.min(CONFIG.difficulty.maxArrivalMult, 1 + (S.day - 1) * CONFIG.difficulty.arrivalPerDay);
-    S.nextCaseAt = S.time + rand(C.arrivalMin, C.arrivalMax) / f;
+    const waiting = S.cases.filter((c) => !c.late).length;
+    if (waiting >= C.maxWaiting) S.nextCaseAt = S.time + C.holdSeconds;   // desk already full: the gateway holds new ones
+    else { spawnCase({}); S.nextCaseAt = S.time + rand(C.arrivalMin, C.arrivalMax) / caseRate(); }
   }
+  const lull = caseWave() < 1 - C.waveAmp * 0.6;
+  if (lull && !S.lull && !SIM && S.day > 1 && S.mode === 'playing') say(pick(CONTENT.lines.lull), 3);
+  S.lull = lull;
   for (const c of S.cases) {
     if (c.late || S.time <= c.deadline) continue;
     c.late = true; S.lateCount++; S.casesVersion++;
@@ -2209,7 +2662,7 @@ function talkTo(n) {
   if (n.state === 'leave') return;
   if (S.time < n.chatReadyAt) { npcSay(n, pick(CONTENT.busy)); sfx.blip(); return; }
   const def = n.def;
-  const topic = def.role === 'colleague' && def.favor && Math.random() < CONFIG.npc.favorChance ? CONTENT.favor : pick(def.talks);
+  const topic = def.role === 'colleague' && def.favor && Math.random() < CONFIG.npc.favorChance ? CONTENT.favor : drawFromBag(def.talks, 'talk-' + n.id);
   n.chatReadyAt = S.time + CONFIG.npc.chatCooldown;
   n.path = []; n.state = 'talk';
   n.dir = dirTo(n, PLAYER.tx, PLAYER.ty); PLAYER.dir = dirTo(PLAYER, n.tx, n.ty);
@@ -2735,11 +3188,26 @@ function drawObj(c, o, t) {
       c.strokeStyle = INK; c.lineWidth = 1.5; for (let i = 1; i < o.w; i++) line(c, X + i * T, Y + 6, X + i * T, Y + 18); return;
     case 'v': box(c, X + 10, Y + 12, W - 20, 12, 2, '#3a3f5c', 2); box(c, X + 2, Y - 12, W - 4, 26, 3, '#101018', 3);
       c.fillStyle = '#1f3b8a'; c.fillRect(X + 6, Y - 8, W - 12, 18);
-      drawPx(c, 'PV NEWS', X + W / 2, Y - 5, 1, '#ffd23f', 'center');
-      c.fillStyle = '#e53935'; c.fillRect(X + 6, Y + 5, W - 12, 5);
-      drawPx(c, 'SOP', X + 6 + ((t * 20) % (W - 20)), Y + 4, 1, '#fff');
-      if (Math.sin(t * 4) > 0) { box(c, X + W - 16, Y - 22, 14, 10, 2, '#ffffff', 1.5); c.strokeStyle = INK; c.lineWidth = 1.2; c.beginPath(); c.moveTo(X + W - 16, Y - 22); c.lineTo(X + W - 9, Y - 16); c.lineTo(X + W - 2, Y - 22); c.stroke(); }
+      for (let i = 0; i < 9; i++) {   // attract mode: a tiny Whack-a-Signal board
+        const on = Math.floor(t * 3 + i * 7) % 5 === 0;
+        c.fillStyle = on ? (i % 3 ? '#ff3b3b' : '#9aa3c0') : '#0b1636';
+        c.fillRect(X + W / 2 - 23 + (i % 3) * 16, Y - 6 + Math.floor(i / 3) * 5, 14, 4);
+      }
+      drawPx(c, 'WHACK-A-SIGNAL', X + W / 2, Y - 22, 1, '#ffd23f', 'center', INK);
       return;
+    case 'B': { // noticeboard: cork, pinned printouts, a fresh one blinking
+      box(c, X + 4, Y - 16, W - 8, H + 8, 3, '#b5793f', 3);
+      c.fillStyle = '#d19a5a'; c.fillRect(X + 8, Y - 12, W - 16, H);
+      [[10, -9, '#fffdf3', -0.08], [34, -10, '#fff59d', 0.06], [58, -8, '#fffdf3', -0.04]].forEach(([dx, dy, col, rot], i) => {
+        c.save(); c.translate(X + dx + 11, Y + dy + 12); c.rotate(rot);
+        box(c, -11, -12, 22, 24, 1, col, 1.2);
+        c.fillStyle = '#9aa3c0'; for (let r = 0; r < 4; r++) c.fillRect(-7, -6 + r * 5, r === 3 ? 8 : 14, 2);
+        c.fillStyle = ['#e53935', '#2b59c3', '#39c46b'][i]; circle(c, 0, -11, 2.5); c.fill();
+        c.restore();
+      });
+      drawPx(c, 'NEWS', X + W / 2, Y - 25, 1, Math.sin(t * 4) > 0 ? '#ffd23f' : '#ffffff', 'center', INK);
+      return;
+    }
     case 'g': box(c, X + 2, Y + 4, W - 4, H - 8, 3, '#2e8b57', 3);
       c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(X + 7, Y + 9, W - 14, H - 18); line(c, X + W / 2, Y + 9, X + W / 2, Y + H - 9);
       c.fillStyle = '#e53935'; circle(c, X + 24, Y + H / 2, 5); c.fill(); circle(c, X + W - 24, Y + H / 2, 5); c.fill(); return;
@@ -3024,7 +3492,8 @@ function promptLabel(tg) {
     case 'P': return 'PRINT';
     case 'L': return S.time < S.toiletReadyAt ? 'WC (OCCUPIED)' : 'BIO BREAK';
     case 'V': return S.time < S.vendReadyAt ? 'VENDING (BUSY)' : 'SNACKS (+NRG)';
-    case 'v': return 'CHECK CORPORATE EMAIL';
+    case 'v': return minigameReady('whack') ? 'PLAY WHACK-A-SIGNAL' : 'TV (REPLAYS ONLY)';
+    case 'B': return 'READ THE NOTICEBOARD';
     case 'a': return minigameReady('trivia') ? 'PLAY PV TRIVIA' : 'TRIVIA (COOLING DOWN)';
     case 'g': return minigameReady('pong') ? 'PLAY TABLE TENNIS' : 'TABLE TENNIS (RESTING)';
     case 'T': case 'W': return S.event && S.event.def.type === 'meeting' ? 'JOIN MEETING' : 'LOOK';
@@ -3184,7 +3653,8 @@ function updateVisuals(dt) {
 }
 
 /* =====================================================================
-   MINI-GAMES: colleague quizzes + table tennis (the office is paused while you play)
+   MINI-GAMES: colleague quizzes (question engine in the QUESTION GAMES section), table tennis, Whack-a-Signal.
+   The office is paused while you play.
    ===================================================================== */
 const MG = { active: null };
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -3193,10 +3663,10 @@ function minigameOf(npc) { return Object.keys(CONTENT.minigames).find((id) => CO
 
 function startMinigame(id, npc) {
   const def = CONTENT.minigames[id];
-  S.mgReady[id] = S.time + (id === 'trivia' ? CONFIG.trivia.cooldown : CONFIG.minigames.cooldown);
+  S.mgReady[id] = S.time + (id === 'trivia' ? CONFIG.trivia.cooldown : id === 'whack' ? CONFIG.minigames.whack.cooldown : CONFIG.minigames.cooldown);
   S.mode = 'minigame';
   if (npc) { npc.state = 'talk'; npc.path = []; }
-  MG.active = id === 'pong' ? new PongGame(def, npc) : id === 'trivia' ? new TriviaGame(def) : new QuizGame(id, def, npc);
+  MG.active = id === 'pong' ? new PongGame(def, npc) : id === 'whack' ? new WhackGame(def) : new TriviaGame(def, npc, id);
   UI.showMinigame(MG.active);
   sfx.start();
 }
@@ -3213,53 +3683,6 @@ function endMinigame(forfeit = false) {
   else if (g.resultLine) say(g.resultLine, 3.5);
   V.happyUntil = V.t + 1.5;
   checkDeath();
-}
-
-/* ---- Quiz engine: Code It! / Abstract Blitz / Serious or Not? / Spot the Error ---- */
-class QuizGame {
-  constructor(id, def, npc) {
-    this.kind = 'quiz'; this.id = id; this.def = def; this.npc = npc;
-    const n = Math.min(CONFIG.minigames.quizRounds, def.items.length);
-    this.items = shuffle([...def.items]).slice(0, n).map((it) => {
-      const opts = it.options.map((text, i) => ({ text, ok: i === it.answer }));
-      return { q: it.q, opts: opts.length > 2 ? shuffle(opts) : opts };   // yes/no games keep a fixed order
-    });
-    this.round = -1; this.correct = 0; this.state = 'intro'; this.t = 0; this.picked = null;
-  }
-  get item() { return this.items[this.round]; }
-  update(dt) {
-    this.t += dt;
-    if (this.state === 'intro' && this.t > 1.6) this.next();
-    else if (this.state === 'question') { this.timeLeft -= dt; if (this.timeLeft <= 0) this.answer(-1); }
-    else if (this.state === 'feedback' && this.t > 0.9) this.next();
-  }
-  next() {
-    this.round++; this.t = 0; this.picked = null;
-    if (this.round >= this.items.length) return this.finish();
-    this.state = 'question'; this.timeLeft = CONFIG.minigames.quizSeconds;
-    UI.renderMinigame(this);
-  }
-  answer(i) {
-    if (this.state !== 'question') return;
-    this.picked = i; this.state = 'feedback'; this.t = 0;
-    const ok = i >= 0 && this.item.opts[i] && this.item.opts[i].ok;
-    if (ok) { this.correct++; sfx.stepDone(); } else sfx.denied();
-    UI.renderMinigame(this);
-  }
-  finish() {
-    const R = CONFIG.minigames.quizReward, n = this.items.length, frac = this.correct / n;
-    this.reward = { sanity: R.sanityBase + R.sanityPerCorrect * this.correct, compliance: R.compliancePerCorrect * this.correct };
-    this.resultLine = this.def.results[frac >= 1 ? 0 : frac >= 0.6 ? 1 : 2];
-    this.state = 'result'; this.t = 0;
-    frac >= 0.6 ? sfx.submit() : sfx.meh();
-    UI.renderMinigame(this);
-  }
-  key(k) {
-    if (this.state === 'result') { if (this.t > 0.4 && ['e', ' ', 'enter'].includes(k)) endMinigame(); return; }
-    if (this.state === 'intro' && ['e', ' ', 'enter'].includes(k)) return this.next();
-    const i = ['1', '2', '3', '4'].indexOf(k);
-    if (i >= 0 && this.state === 'question' && i < this.item.opts.length) this.answer(i);
-  }
 }
 
 /* ---- Table tennis (Pong) ---- */
@@ -3282,11 +3705,17 @@ class PongGame {
     if (this.state === 'point') { if (this.t > 0.9) { if (Math.max(...this.score) >= C.pointsToWin) this.finish(); else { this.state = 'play'; this.serve(this.lastWinner === 0 ? 1 : -1); } } return; }
     if (this.state !== 'play') return;
     // player paddle: keys / joystick / pointer drag
-    const d = heldDir(), sp = C.paddleSpeed * dt, half = this.PH / 2 + 4;
-    if (d === 'up') this.py -= sp;
-    if (d === 'down') this.py += sp;
-    if (this.pointerY != null) this.py += clamp(this.pointerY - this.py, -sp * 1.4, sp * 1.4);
-    this.py = clamp(this.py, half, this.H - half);
+    // paddle: keys give full speed, the joystick is analogue, pointer/touch drag follows the finger;
+    // velocity eases toward the target so it feels quick but smooth
+    const half = this.PH / 2 + 4;
+    let want = 0;
+    const v = input.joyVec;
+    if (v && Math.abs(v.y) > 0.12) want = v.y * C.paddleSpeed;
+    else { const d = heldDir(); if (d === 'up') want = -C.paddleSpeed; if (d === 'down') want = C.paddleSpeed; }
+    if (this.pointerY != null) want = clamp((this.pointerY - this.py) * 14, -C.paddleSpeed * 1.4, C.paddleSpeed * 1.4);
+    this.pv = (this.pv || 0) + (want - (this.pv || 0)) * Math.min(1, dt * C.paddleAccel);
+    this.py = clamp(this.py + this.pv * dt, half, this.H - half);
+    if (this.py === half || this.py === this.H - half) this.pv = 0;
     // CPU paddle: tracks the ball with a little human error
     const b = this.ball;
     const target = b.vx > 0 ? b.y + this.cpuErr : this.H / 2;
@@ -3349,48 +3778,57 @@ class PongGame {
 }
 
 /* =====================================================================
-   PV TRIVIA (arcade cabinet): a no-repeat shuffle bag + an arcade quiz with streaks
+   QUESTION GAMES: PV Trivia (arcade) + the four colleague quizzes, one shared engine
    ===================================================================== */
-/** Remembers which questions this browser has already seen (across games and sessions).
- *  A question only comes back after the whole bank has been used; then the bag reshuffles. */
-const TriviaBag = {
-  seen: new Set(), lastCat: null, cycle: 1,
-  load() {
-    const d = Store.get(CONFIG.storageKeys.trivia, null);
-    this.seen = new Set(d && Array.isArray(d.seen) ? d.seen : []);
-    this.lastCat = (d && d.lastCat) || null;
-    this.cycle = (d && d.cycle) || 1;
-  },
-  save() { Store.set(CONFIG.storageKeys.trivia, { seen: [...this.seen], lastCat: this.lastCat, cycle: this.cycle }); },
-  mixFor(day) {
-    let mix = CONFIG.trivia.difficultyByDay[0].mix;
-    for (const r of CONFIG.trivia.difficultyByDay) if (day >= r.fromDay) mix = r.mix;
-    return mix;
-  },
-  draw(day) {
-    const bank = CONTENT.triviaBank;
-    let pool = bank.filter((q) => !this.seen.has(q.id));
-    if (!pool.length) { this.seen.clear(); this.cycle++; pool = bank.slice(); }   // whole bank used: reshuffle
-    const otherCat = pool.filter((q) => q.cat !== this.lastCat);                   // no same category twice in a row
-    if (otherCat.length) pool = otherCat;
-    // difficulty ramp: pick a target difficulty for this day, fall back to the nearest one that still has questions
-    const mix = this.mixFor(day);
-    let r = Math.random() * ((mix[1] || 0) + (mix[2] || 0) + (mix[3] || 0)), target = 1;
-    for (const d of [1, 2, 3]) { r -= mix[d] || 0; if (r <= 0) { target = d; break; } }
-    const order = [1, 2, 3].sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || a - b);
-    let cands = [];
-    for (const d of order) { cands = pool.filter((q) => q.diff === d); if (cands.length) break; }
-    const q = pick(cands);
-    this.seen.add(q.id); this.lastCat = q.cat; this.save();
-    return q;
-  },
-};
-TriviaBag.load();
+/** A no-repeat "shuffle bag" over a question bank, remembered in localStorage across games and sessions.
+ *  An item only comes back after the whole bank has been used; then the bag reshuffles. */
+function makeQuestionBag(storageKey, getBank) {
+  const bag = {
+    seen: new Set(), lastCat: null, cycle: 1,
+    load() {
+      const d = Store.get(storageKey, null);
+      this.seen = new Set(d && Array.isArray(d.seen) ? d.seen : []);
+      this.lastCat = (d && d.lastCat) || null;
+      this.cycle = (d && d.cycle) || 1;
+    },
+    save() { Store.set(storageKey, { seen: [...this.seen], lastCat: this.lastCat, cycle: this.cycle }); },
+    mixFor(day) {
+      let mix = CONFIG.trivia.difficultyByDay[0].mix;
+      for (const r of CONFIG.trivia.difficultyByDay) if (day >= r.fromDay) mix = r.mix;
+      return mix;
+    },
+    draw(day) {
+      const bank = getBank();
+      let pool = bank.filter((q) => !this.seen.has(q.id));
+      if (!pool.length) { this.seen.clear(); this.cycle++; pool = bank.slice(); }   // whole bank used: reshuffle
+      const otherCat = pool.filter((q) => q.cat !== this.lastCat);                   // no same category twice in a row
+      if (otherCat.length) pool = otherCat;
+      // difficulty ramp: pick a target difficulty for this day, fall back to the nearest one that still has items
+      const mix = this.mixFor(day);
+      let r = Math.random() * ((mix[1] || 0) + (mix[2] || 0) + (mix[3] || 0)), target = 1;
+      for (const d of [1, 2, 3]) { r -= mix[d] || 0; if (r <= 0) { target = d; break; } }
+      const order = [1, 2, 3].sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || a - b);
+      let cands = [];
+      for (const d of order) { cands = pool.filter((q) => q.diff === d); if (cands.length) break; }
+      const q = pick(cands);
+      this.seen.add(q.id); this.lastCat = q.cat || null; this.save();
+      return q;
+    },
+  };
+  bag.load();
+  return bag;
+}
+const TriviaBag = makeQuestionBag(CONFIG.storageKeys.trivia, () => CONTENT.triviaBank);
+const QuizBags = {};
+function quizBag(id) { return QuizBags[id] || (QuizBags[id] = makeQuestionBag(CONFIG.storageKeys.quizPrefix + id, () => CONTENT.minigames[id].bank)); }
 
 function prepareTrivia(q) {
-  const opts = q.type === 'tf'
-    ? [{ text: 'TRUE', ok: q.answer === true }, { text: 'FALSE', ok: q.answer === false }]
-    : shuffle(q.options.map((text, i) => ({ text, ok: i === q.answer })));
+  let opts;
+  if (q.type === 'tf') opts = [{ text: 'TRUE', ok: q.answer === true }, { text: 'FALSE', ok: q.answer === false }];
+  else {
+    opts = q.options.map((text, i) => ({ text, ok: i === q.answer }));
+    if (q.type !== 'bin') opts = shuffle(opts);   // yes/no style games keep their fixed button order
+  }
   return { ...q, opts };
 }
 function triviaMultiplier(streak) {
@@ -3408,14 +3846,19 @@ const sfxTrivia = {
   streak()  { Sound.seq([NOTE.G5, NOTE.C6, NOTE.G5, NOTE.C6, NOTE.E5, NOTE.C6], 0.05, { vol: 0.15, delay: 0.28 }); },
 };
 
+/** One engine for PV Trivia (id 'trivia') and the colleague quizzes (id = their CONTENT.minigames key). */
 class TriviaGame {
-  constructor(def) {
-    this.kind = 'trivia'; this.def = def; this.npc = null;
-    this.n = CONFIG.trivia.questionsPerGame;
+  constructor(def, npc = null, id = 'trivia') {
+    this.kind = 'trivia'; this.id = id; this.def = def; this.npc = npc;
+    this.colleague = id !== 'trivia';
+    this.bag = this.colleague ? quizBag(id) : TriviaBag;
+    this.n = this.colleague ? CONFIG.minigames.quizRounds : CONFIG.trivia.questionsPerGame;
     this.round = -1; this.correct = 0; this.points = 0; this.gained = 0; this.bonusMsg = '';
-    this.bestStreak = S.triviaStreak || 0;
+    this.bestStreak = this.streak;
     this.state = 'intro'; this.t = 0; this.q = null; this.picked = null;
   }
+  get streak() { return this.colleague ? (S.quizStreaks[this.id] || 0) : (S.triviaStreak || 0); }
+  set streak(v) { if (this.colleague) S.quizStreaks[this.id] = v; else S.triviaStreak = v; }
   update(dt) {
     this.t += dt;
     if (this.state === 'intro' && this.t > 1.8) this.next();
@@ -3425,8 +3868,9 @@ class TriviaGame {
   next() {
     this.round++; this.t = 0; this.picked = null; this.gained = 0; this.bonusMsg = '';
     if (this.round >= this.n) return this.finish();
-    this.q = prepareTrivia(TriviaBag.draw(S.day));
-    this.timeTotal = CONFIG.trivia.seconds[this.q.type] || 10;
+    this.q = prepareTrivia(this.bag.draw(S.day));
+    const secs = this.colleague ? CONFIG.minigames.quizSeconds : CONFIG.trivia.seconds;
+    this.timeTotal = secs[this.q.type] || 10;
     this.timeLeft = this.timeTotal;
     this.state = 'question';
     UI.renderMinigame(this);
@@ -3438,26 +3882,26 @@ class TriviaGame {
     this.ok = i >= 0 && !!(this.q.opts[i] && this.q.opts[i].ok);
     if (this.ok) {
       this.correct++;
-      S.triviaStreak = (S.triviaStreak || 0) + 1;
-      this.bestStreak = Math.max(this.bestStreak, S.triviaStreak);
-      this.mult = triviaMultiplier(S.triviaStreak);
+      this.streak = this.streak + 1;
+      this.bestStreak = Math.max(this.bestStreak, this.streak);
+      this.mult = triviaMultiplier(this.streak);
       this.gained = Math.round((C.pointsPerDifficulty[this.q.diff] || 100) * this.mult);
       this.points += this.gained;
       sfxTrivia.correct();
-      if (S.triviaStreak % C.streakBonusEvery === 0) {
+      if (this.streak % C.streakBonusEvery === 0) {
         applyEffects(C.streakBonus);
-        this.bonusMsg = `STREAK ${S.triviaStreak}! ${fxHint(C.streakBonus).replace(/<[^>]+>/g, '')}`;
+        this.bonusMsg = `STREAK ${this.streak}! ${fxHint(C.streakBonus).replace(/<[^>]+>/g, '')}`;
         sfxTrivia.streak();
       }
     } else {
-      S.triviaStreak = 0;
+      this.streak = 0;
       sfxTrivia.wrong();
     }
     this.state = 'feedback'; this.t = 0;
     UI.renderMinigame(this);
   }
   finish() {
-    const R = CONFIG.trivia.reward, frac = this.correct / this.n;
+    const R = this.colleague ? CONFIG.minigames.quizReward : CONFIG.trivia.reward, frac = this.correct / this.n;
     this.reward = { sanity: R.sanityBase + R.sanityPerCorrect * this.correct, compliance: R.compliancePerCorrect * this.correct };
     this.resultLine = this.def.results[frac >= 1 ? 0 : frac >= 0.6 ? 1 : 2];
     this.state = 'result'; this.t = 0;
@@ -3475,6 +3919,166 @@ class TriviaGame {
     if (i >= 0 && i < this.q.opts.length) this.answer(i);
   }
 }
+
+function startWhack() {
+  if (!minigameReady('whack')) { say(pick(CONTENT.minigames.whack.busy)); sfx.denied(); return; }
+  startMinigame('whack', null);
+}
+
+/* =====================================================================
+   WHACK-A-SIGNAL (on the break-room TV): whack real safety signals, leave the noise alone
+   ===================================================================== */
+const NUMPAD = { 7: 0, 8: 1, 9: 2, 4: 3, 5: 4, 6: 5, 1: 6, 2: 7, 3: 8 };
+class WhackGame {
+  constructor(def) {
+    this.kind = 'whack'; this.def = def; this.npc = null;
+    this.W = 480; this.H = 270;
+    this.cells = Array.from({ length: 9 }, () => ({ kind: null, label: '', t: 0, dur: 0, hit: 0, hitOk: false }));
+    this.cursor = 4; this.state = 'intro'; this.t = 0;
+    this.time = CONFIG.minigames.whack.seconds; this.points = 0; this.combo = 0; this.bestCombo = 0;
+    this.hits = 0; this.falses = 0; this.missed = 0; this.spawnT = 0.3; this.joyT = 0;
+  }
+  cellRect(i) {   // screen layout of the 3x3 wall of monitors
+    const cw = 120, ch = 56, gap = 10, gx = (this.W - 3 * cw - 2 * gap) / 2, gy = 40;
+    const c = i % 3, r = Math.floor(i / 3);
+    return { x: gx + c * (cw + gap), y: gy + r * (ch + gap), w: cw, h: ch };
+  }
+  update(dt) {
+    const C = CONFIG.minigames.whack;
+    this.t += dt;
+    for (const c of this.cells) if (c.hit > 0) c.hit -= dt;
+    if (this.state === 'intro') { if (this.t > 1.8) { this.state = 'play'; this.t = 0; } return; }
+    if (this.state !== 'play') return;
+    this.time -= dt;
+    if (this.time <= 0) return this.finish();
+    const prog = 1 - this.time / C.seconds;
+    this.spawnT -= dt;
+    if (this.spawnT <= 0) {
+      this.spawnT = (C.spawnStart + (C.spawnEnd - C.spawnStart) * prog) * rand(0.7, 1.3);
+      this.spawn(C.upStart + (C.upEnd - C.upStart) * prog);
+    }
+    for (const c of this.cells) {
+      if (!c.kind) continue;
+      c.t += dt;
+      if (c.t >= c.dur) {
+        if (c.kind === 'signal') { this.missed++; this.combo = 0; }
+        c.kind = null;
+      }
+    }
+    const d = input.joy;   // joystick moves the cursor, with key-repeat
+    if (d) { this.joyT -= dt; if (this.joyT <= 0) { this.moveCursor(d); this.joyT = 0.18; } } else this.joyT = 0;
+  }
+  spawn(up) {
+    const empty = this.cells.map((c, i) => (c.kind ? -1 : i)).filter((i) => i >= 0);
+    if (!empty.length) return;
+    const i = pick(empty), signal = Math.random() > CONFIG.minigames.whack.noiseChance, D = this.def;
+    this.cells[i] = { kind: signal ? 'signal' : 'noise', label: pick(signal ? D.signals : D.noise), t: 0, dur: up, hit: 0, hitOk: false };
+  }
+  moveCursor(d) {
+    let r = Math.floor(this.cursor / 3), c = this.cursor % 3;
+    if (d === 'up') r = Math.max(0, r - 1); if (d === 'down') r = Math.min(2, r + 1);
+    if (d === 'left') c = Math.max(0, c - 1); if (d === 'right') c = Math.min(2, c + 1);
+    this.cursor = r * 3 + c;
+  }
+  whack(i) {
+    if (this.state !== 'play') return;
+    const C = CONFIG.minigames.whack, cell = this.cells[i];
+    this.cursor = i;
+    if (cell.kind === 'signal') {
+      this.hits++; this.combo++; this.bestCombo = Math.max(this.bestCombo, this.combo);
+      this.points += Math.round(C.signalPoints * (1 + Math.floor(this.combo / C.comboStep) * 0.5));
+      cell.kind = null; cell.hit = 0.35; cell.hitOk = true;
+      Sound.seq([NOTE.E5, NOTE.A5], 0.04, { vol: 0.16 });
+    } else if (cell.kind === 'noise') {
+      this.falses++; this.combo = 0; this.points = Math.max(0, this.points - C.noisePenalty);
+      cell.kind = null; cell.hit = 0.35; cell.hitOk = false;
+      Sound.tone(150, 0.15, { type: 'sawtooth', vol: 0.16 });
+    } else Sound.tone(500, 0.03, { vol: 0.06 });
+  }
+  tap(x, y) {
+    for (let i = 0; i < 9; i++) { const r = this.cellRect(i); if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return this.whack(i); }
+  }
+  finish() {
+    const C = CONFIG.minigames.whack;
+    this.reward = { sanity: Math.min(C.maxSanity, C.sanityBase + Math.floor(this.points / C.pointsPerSanity)),
+      compliance: Math.min(C.maxCompliance, Math.floor(this.hits / C.hitsPerCompliance)) };
+    const acc = this.hits / Math.max(1, this.hits + this.falses + this.missed);
+    this.won = acc >= 0.6;
+    this.resultLine = this.def.results[acc >= 0.8 ? 0 : acc >= 0.6 ? 1 : 2];
+    this.state = 'result'; this.t = 0;
+    this.won ? sfx.submit() : sfx.meh();
+    UI.renderMinigame(this);
+  }
+  key(k) {
+    const go = ['e', ' ', 'enter'].includes(k);
+    if (this.state === 'result') { if (this.t > 0.4 && go) endMinigame(); return; }
+    if (this.state === 'intro') { if (go) { this.state = 'play'; this.t = 0; } return; }
+    if (k in NUMPAD) return this.whack(NUMPAD[k]);
+    const dirs = { arrowup: 'up', w: 'up', arrowdown: 'down', s: 'down', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right' };
+    if (dirs[k]) return this.moveCursor(dirs[k]);
+    if (go) this.whack(this.cursor);
+  }
+  render(c) {
+    const W = this.W, H = this.H, C = CONFIG.minigames.whack;
+    c.fillStyle = '#0b1636'; c.fillRect(0, 0, W, H);
+    c.fillStyle = '#e53935'; c.fillRect(0, 0, W, 22);
+    drawPx(c, 'PV NEWS LIVE', 10, 7, 1, '#ffffff');
+    drawPx(c, 'WHACK-A-SIGNAL', W / 2, 7, 1, '#ffd23f', 'center');
+    drawPx(c, `${Math.max(0, Math.ceil(this.time))}S`, W - 10, 7, 1, '#ffffff', 'right');
+    c.fillStyle = '#1b2a5c'; c.fillRect(0, H - 22, W, 22);
+    drawPx(c, `SCORE ${this.points}`, 10, H - 15, 1, '#ffffff');
+    drawPx(c, `COMBO ${this.combo}`, W / 2, H - 15, 1, this.combo >= C.comboStep ? '#ffd23f' : '#9fb0d8', 'center');
+    drawPx(c, `HITS ${this.hits}  NOISE ${this.falses}`, W - 10, H - 15, 1, '#9fb0d8', 'right');
+    const tb = Math.max(0, this.time / C.seconds);
+    c.fillStyle = '#29e6ff'; c.fillRect(0, 22, W * tb, 3);
+    for (let i = 0; i < 9; i++) {
+      const r = this.cellRect(i), cell = this.cells[i];
+      c.fillStyle = '#050a1c'; rr(c, r.x, r.y, r.w, r.h, 6); c.fill();
+      c.strokeStyle = i === this.cursor ? '#ffd23f' : '#2e3f7a'; c.lineWidth = i === this.cursor ? 3 : 2; c.stroke();
+      c.globalAlpha = 0.25; c.strokeStyle = '#29e6ff'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(r.x + 6, r.y + r.h - 8); c.lineTo(r.x + r.w - 6, r.y + r.h - 8); c.stroke(); c.globalAlpha = 1;
+      if (cell.kind) {
+        const life = cell.t / cell.dur, pulse = 1 + 0.15 * Math.sin(V.t * 14);
+        const col = cell.kind === 'signal' ? '#ff3b3b' : '#7d86a8';
+        c.globalAlpha = life > 0.75 ? 1 - (life - 0.75) * 3 : 1;
+        c.fillStyle = col; circle(c, r.x + r.w / 2, r.y + 20, 10 * (cell.kind === 'signal' ? pulse : 1)); c.fill(); ink(c, 2);
+        if (cell.kind === 'signal') drawPx(c, '!', r.x + r.w / 2, r.y + 17, 1, '#ffffff', 'center');
+        drawPx(c, cell.label, r.x + r.w / 2, r.y + r.h - 19, 1, cell.kind === 'signal' ? '#ffd0d0' : '#c0c6dc', 'center');
+        c.globalAlpha = 1;
+      }
+      if (cell.hit > 0) {
+        c.globalAlpha = cell.hit / 0.35;
+        c.fillStyle = cell.hitOk ? '#39ff88' : '#ff3b3b'; rr(c, r.x, r.y, r.w, r.h, 6); c.fill();
+        drawPx(c, cell.hitOk ? 'SIGNAL!' : 'NOISE!', r.x + r.w / 2, r.y + r.h / 2 - 6, 2, '#0b1636', 'center');
+        c.globalAlpha = 1;
+      }
+    }
+    if (this.state === 'intro') {
+      c.fillStyle = 'rgba(5,10,28,.85)'; c.fillRect(0, 22, W, H - 44);
+      drawPx(c, 'WHACK THE SIGNALS', W / 2, 90, 3, '#ff3b3b', 'center', '#000');
+      drawPx(c, 'LEAVE THE NOISE', W / 2, 130, 3, '#9fb0d8', 'center', '#000');
+      drawPx(c, 'GET READY...', W / 2, 180, 2, '#ffd23f', 'center');
+    }
+  }
+}
+
+/* =====================================================================
+   BREAK-ROOM NOTICEBOARD: corporate emails, no repeats until all have been read
+   ===================================================================== */
+const MailBag = {
+  seen: new Set(),
+  load() { const d = Store.get(CONFIG.storageKeys.mail, null); this.seen = new Set(d && Array.isArray(d.seen) ? d.seen : []); },
+  draw() {
+    const all = CONTENT.mails;
+    let pool = all.filter((m) => !this.seen.has(m.subject));
+    if (!pool.length) { this.seen.clear(); pool = all.slice(); }
+    const m = pick(pool);
+    this.seen.add(m.subject);
+    Store.set(CONFIG.storageKeys.mail, { seen: [...this.seen] });
+    return m;
+  },
+};
+MailBag.load();
 
 /* =====================================================================
    LEADERBOARD: office-wide scores (Supabase REST), with an on-device fallback.
@@ -3644,8 +4248,8 @@ const UI = {
       $('#evTime').textContent = Math.max(0, S.event.timeLeft).toFixed(1);
       $('#evBar').style.width = (100 * Math.max(0, S.event.timeLeft) / S.event.total) + '%';
     }
-    if (MG.active && (MG.active.kind === 'quiz' || MG.active.kind === 'trivia') && MG.active.state === 'question') {
-      const bar = $('#qBar'); if (bar) bar.style.width = (100 * MG.active.timeLeft / (MG.active.timeTotal || CONFIG.minigames.quizSeconds)) + '%';
+    if (MG.active && MG.active.kind === 'trivia' && MG.active.state === 'question') {
+      const bar = $('#qBar'); if (bar) bar.style.width = (100 * MG.active.timeLeft / MG.active.timeTotal) + '%';
     }
     if (this.touch) {
       const label = S.mode === 'minigame' ? 'OK' : S.mode === 'playing' ? (promptLabel(S.target) || 'ACTION') : S.mode === 'title' || S.mode === 'gameover' ? 'START' : 'OK';
@@ -3731,7 +4335,7 @@ const UI = {
 
   showMail(m) {
     const M = CONTENT.mail;
-    $('#mailHeader').textContent = M.header; $('#mailFrom').textContent = M.from; $('#mailTo').textContent = M.to;
+    $('#mailHeader').textContent = M.header; $('#mailFrom').textContent = m.from || M.from; $('#mailTo').textContent = M.to;
     $('#mailSubject').textContent = m.subject; $('#mailBody').textContent = m.body;
     $('#mailRead .t').textContent = M.read + '  ' ; $('#mailReply .t').textContent = M.replyAll;
     $('#mailRead .t').insertAdjacentHTML('beforeend', '<span class="up">' + fxHint(M.readEffects) + '</span>');
@@ -3762,12 +4366,14 @@ const UI = {
   renderTrivia(g) {
     const body = $('#mgBody'), info = $('#mgInfo'), foot = $('#mgFoot'), C = CONFIG.trivia;
     body.innerHTML = '';
+    const host = g.npc ? g.npc.name.toUpperCase() : '';
     if (g.state === 'intro') {
-      info.textContent = `ARCADE · ${g.n} QUESTIONS`;
+      info.textContent = g.colleague ? `WITH ${host} · ${g.n} QUESTIONS` : `ARCADE · ${g.n} QUESTIONS`;
       foot.textContent = 'E / SPACE to start · ESC to quit';
-      body.append(pxCanvas('PV TRIVIA', 6, '#ff3fb4', '#4a0030', 'glow-pink'), el('div', 'mg-intro', ''), el('div', 'mg-ready blink', 'INSERT COFFEE... GET READY!'));
+      body.append(g.colleague ? pxCanvas(g.def.title, 5, '#29e6ff', '#003a4a', 'glow-cyan') : pxCanvas('PV TRIVIA', 6, '#ff3fb4', '#4a0030', 'glow-pink'),
+        el('div', 'mg-intro', ''), el('div', 'mg-ready blink', g.colleague ? 'GET READY...' : 'INSERT COFFEE... GET READY!'));
       body.querySelector('.mg-intro').textContent = g.def.intro;
-      if (S.triviaStreak > 0) body.insertBefore(el('div', 'tv-streak hot', `🔥 STREAK ${S.triviaStreak} CARRIED OVER`), body.lastChild);
+      if (g.streak > 0) body.insertBefore(el('div', 'tv-streak hot', `🔥 STREAK ${g.streak} CARRIED OVER`), body.lastChild);
       return;
     }
     if (g.state === 'result') {
@@ -3782,20 +4388,20 @@ const UI = {
       body.querySelector('.mg-line').textContent = g.resultLine;
       return;
     }
-    const q = g.q, mult = triviaMultiplier(S.triviaStreak);
+    const q = g.q, mult = triviaMultiplier(g.streak);
     info.textContent = `Q ${g.round + 1}/${g.n} · ${g.points} PTS`;
-    foot.textContent = q.type === 'tf' ? 'T / F, 1-2 or tap to answer · ESC to quit' : '1-4 or tap to answer · ESC to quit';
+    foot.textContent = q.type === 'tf' ? 'T / F, 1-2 or tap to answer · ESC to quit' : `1-${q.opts.length} or tap to answer · ESC to quit`;
     const wrap = el('div', 'tv-wrap', '');
     const top = el('div', 'tv-top', '');
     const chip = el('div', '', '');
-    const cat = el('span', 'tv-chip', ''); cat.textContent = CONTENT.triviaCategories[q.cat] || q.cat;
+    const cat = el('span', 'tv-chip', ''); cat.textContent = g.colleague ? (host ? host.split(' ')[0] + ' · ' : '') + g.def.title : CONTENT.triviaCategories[q.cat] || q.cat;
     const stars = el('span', 'tv-stars', '★'.repeat(q.diff) + '☆'.repeat(3 - q.diff));
     chip.append(cat, stars);
-    if (q.type !== 'mc') chip.append(el('span', 'tv-type', q.type === 'tf' ? 'TRUE OR FALSE' : 'ODD ONE OUT'));
-    const streak = el('div', 'tv-streak' + (S.triviaStreak >= 3 ? ' hot' : ''), `🔥 STREAK ${S.triviaStreak} · ×${mult}`);
+    if (q.type === 'tf' || q.type === 'odd') chip.append(el('span', 'tv-type', q.type === 'tf' ? 'TRUE OR FALSE' : 'ODD ONE OUT'));
+    const streak = el('div', 'tv-streak' + (g.streak >= 3 ? ' hot' : ''), `🔥 STREAK ${g.streak} · ×${mult}`);
     top.append(chip, streak);
-    const qt = el('div', 'q-text', ''); qt.textContent = q.q;
-    const opts = el('div', 'tv-opts' + (q.type === 'tf' ? ' two' : ''), '');
+    const qt = el('div', 'q-text', ''); qt.textContent = q.q || g.def.prompt;
+    const opts = el('div', 'tv-opts' + (q.opts.length === 2 ? ' two' : ''), '');
     q.opts.forEach((o, i) => {
       const b = document.createElement('button');
       b.className = 'choice'; b.tabIndex = -1;
@@ -3805,7 +4411,9 @@ const UI = {
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (MG.active === g) g.answer(i); });
       opts.appendChild(b);
     });
-    wrap.append(top, qt, opts, el('div', 'q-timer', '<div id="qBar"></div>'));
+    wrap.append(top);
+    if (g.colleague && q.q && g.def.prompt) { const pr = el('div', 'q-prompt', ''); pr.textContent = g.def.prompt; wrap.append(pr); }
+    wrap.append(qt, opts, el('div', 'q-timer', '<div id="qBar"></div>'));
     if (g.state === 'feedback') {
       const bn = el('div', 'tv-banner ' + (g.ok ? 'ok' : 'bad'), '');
       bn.append(pxCanvas(g.ok ? 'CORRECT!' : g.picked < 0 ? 'TIME UP!' : 'WRONG!', 4, g.ok ? '#39ff88' : '#ff3b3b', '#000'));
@@ -3825,15 +4433,15 @@ const UI = {
     const body = $('#mgBody'), info = $('#mgInfo'), foot = $('#mgFoot');
     const opp = g.npc ? g.npc.name.toUpperCase() : '';
     if (g.state === 'result') {
-      const title = g.kind === 'pong' ? (g.won ? 'YOU WIN!' : 'GOOD GAME!') : `${g.correct}/${g.items.length} CORRECT`;
-      const good = g.kind === 'pong' ? g.won : g.correct / g.items.length >= 0.6;
+      const title = g.kind === 'pong' ? (g.won ? 'YOU WIN!' : 'GOOD GAME!') : (g.won ? 'SIGNALS CAUGHT!' : 'TOO MUCH NOISE!');
+      const good = g.won;
       body.innerHTML = '';
       body.append(
         pxCanvas(title, 5, good ? '#39ff88' : '#ffd23f', '#000', good ? 'glow-cyan' : 'glow-yellow'),
         el('div', 'mg-line', ''), el('div', 'mg-reward', 'REWARD: ' + fxHint(g.reward)),
         this.startButton('PRESS E TO CONTINUE', () => { if (MG.active && MG.active.t > 0.4) endMinigame(); }));
       body.querySelector('.mg-line').textContent = g.resultLine;
-      info.textContent = g.kind === 'pong' ? `${g.score[0]} - ${g.score[1]}` : '';
+      info.textContent = g.kind === 'pong' ? `${g.score[0]} - ${g.score[1]}` : `${g.points} PTS · ${g.hits} SIGNALS · ${g.falses} FALSE ALARMS`;
       foot.textContent = '';
       return;
     }
@@ -3850,36 +4458,18 @@ const UI = {
       }
       return;
     }
-    // quiz
-    foot.textContent = '1-4 or tap to answer · ESC to quit';
-    if (g.state === 'intro') {
-      info.textContent = opp;
-      body.innerHTML = '';
-      body.append(el('div', 'mg-intro', ''), el('div', 'mg-ready blink', 'GET READY...'));
-      body.querySelector('.mg-intro').textContent = g.def.intro;
-      return;
-    }
-    info.textContent = `ROUND ${g.round + 1}/${g.items.length} · ${g.correct} RIGHT`;
-    const it = g.item;
-    body.innerHTML = '';
-    body.append(el('div', 'q-prompt', ''), el('div', 'q-text', ''));
-    body.querySelector('.q-prompt').textContent = g.def.prompt;
-    body.querySelector('.q-text').textContent = it.q;
-    if (!it.q) body.querySelector('.q-text').remove();
-    const opts = el('div', 'q-opts' + (it.opts.length === 2 ? ' two' : ''), '');
-    it.opts.forEach((o, i) => {
-      const b = document.createElement('button');
-      b.className = 'choice'; b.tabIndex = -1;
-      if (g.state === 'feedback') { if (o.ok) b.classList.add('right'); else if (i === g.picked) b.classList.add('wrong'); }
-      b.innerHTML = `<span class="k">${i + 1}</span><span class="t"></span>`;
-      b.querySelector('.t').textContent = o.text;
-      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (MG.active) MG.active.answer(i); });
-      opts.appendChild(b);
-    });
-    body.append(opts, el('div', 'q-timer', '<div id="qBar"></div>'));
-    if (g.state === 'feedback') {
-      const ok = g.picked >= 0 && it.opts[g.picked].ok;
-      body.append(el('div', 'q-feedback ' + (ok ? 'up' : 'down'), g.picked < 0 ? 'TIME IS UP!' : ok ? 'CORRECT!' : 'NOPE!'));
+    if (g.kind === 'whack') {
+      info.textContent = 'PV NEWS LIVE';
+      foot.textContent = UI.touch ? 'Tap the red signals · leave the grey noise · ESC to quit' : 'Click the red signals · 1-9 (numpad layout) or ARROWS + E · ESC to quit';
+      if (!$('#mgCanvas')) {
+        body.innerHTML = '<canvas id="mgCanvas" width="960" height="540"></canvas>';
+        const cvs = $('#mgCanvas');
+        cvs.addEventListener('pointerdown', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const r = cvs.getBoundingClientRect(), g2 = MG.active;
+          if (g2 && g2.kind === 'whack') g2.tap((e.clientX - r.left) / r.width * g2.W, (e.clientY - r.top) / r.height * g2.H);
+        });
+      }
     }
   },
   pressChoice(i) { const b = $('#evChoices').children[i]; if (b) b.classList.add('pressed'); },
@@ -4131,9 +4721,14 @@ window.addEventListener('pointerup', () => { input.mouseWork = false; });
     const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
     const len = Math.hypot(dx, dy), max = r.width / 2 - 20, k = len > max ? max / len : 1;
     knob.style.transform = `translate(${dx * k}px,${dy * k}px)`;
-    input.joy = len < 14 ? null : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+    input.joyVec = { x: clamp(dx / max, -1, 1), y: clamp(dy / max, -1, 1) };   // analogue, used by table tennis
+    if (len < 14) { input.joy = null; return; }
+    // hysteresis: near the diagonal keep the current axis, so the direction doesn't flicker
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    const horiz = input.joy === 'left' || input.joy === 'right' ? ay < ax * 1.35 : input.joy ? ax > ay * 1.35 : ax > ay;
+    input.joy = horiz ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
   };
-  const end = () => { id = null; input.joy = null; knob.style.transform = ''; };
+  const end = () => { id = null; input.joy = null; input.joyVec = null; knob.style.transform = ''; };
   joy.addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.init(); id = e.pointerId; try { joy.setPointerCapture(id); } catch (err) { /* capture is optional */ } move(e); });
   joy.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
   joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
@@ -4167,7 +4762,7 @@ function frame(now) {
   else if (S.mode === 'minigame' && MG.active) {
     MG.active.update(dt);
     const mc = $('#mgCanvas');
-    if (MG.active && MG.active.kind === 'pong' && mc) { const x = mc.getContext('2d'); x.setTransform(2, 0, 0, 2, 0, 0); x.lineJoin = 'round'; x.lineCap = 'round'; MG.active.render(x); }
+    if (MG.active && (MG.active.kind === 'pong' || MG.active.kind === 'whack') && mc) { const x = mc.getContext('2d'); x.setTransform(2, 0, 0, 2, 0, 0); x.lineJoin = 'round'; x.lineCap = 'round'; MG.active.render(x); }
   }
   updateVisuals(dt);
   updateCamera(dt, false);
@@ -4180,7 +4775,7 @@ function frame(now) {
 /* Test/balance hooks (harmless in normal play) */
 window.DSS = {
   CONFIG, CONTENT, S, V, P: PLAYER, NPCS, OBJECTS, GRID, MY_DESK, walkable, bfs,
-  start: startGame, gameOver, Board, clockOut, openMail, closeMail, TriviaBag, prepareTrivia, startTrivia, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
+  start: startGame, gameOver, Board, clockOut, openMail, closeMail, MailBag, TriviaBag, quizBag, prepareTrivia, startTrivia, startWhack, WhackGame, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
   api: {
     goToTile(tx, ty) { const P = PLAYER; if (P.tx === tx && P.ty === ty && !P.moving) return true; if (!P.path.length && !P.moving) pathTo(P, tx, ty); return false; },
     goToObj(type) {

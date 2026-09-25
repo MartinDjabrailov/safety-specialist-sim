@@ -1,4 +1,5 @@
 // PV Trivia checks: bank integrity + counts, no-repeat shuffle bag, reshuffle, persistence, difficulty ramp, screenshots.
+// Also the four colleague quizzes (same engine): bank integrity, their own no-repeat bags.
 // Run: cd tests && node trivia.js   (screenshots land in tests/shots/)
 const { chromium } = require('playwright');
 const path = require('path');
@@ -91,6 +92,34 @@ const waitFor = async (page, fn, arg, timeout = 15000) => {
   check('day 1 draws mostly difficulty 1 (no difficulty 3)', ramp.day1[1] >= 18 && ramp.day1[3] === 0, JSON.stringify(ramp.day1));
   check('day 7 mixes in difficulty 2 and 3', ramp.day7[2] > 0 && ramp.day7[3] > 0, JSON.stringify(ramp.day7));
   await page.evaluate(() => { localStorage.removeItem(DSS.CONFIG.storageKeys.trivia); DSS.TriviaBag.load(); });
+
+  // ---- 4b. colleague quizzes: 40 items each, well-formed, each with its own no-repeat bag ----
+  const cq = await page.evaluate(() => {
+    const out = {}, allIds = new Set(DSS.CONTENT.triviaBank.map((q) => q.id));
+    for (const id of ['meddra', 'lit', 'serious', 'qc']) {
+      const def = DSS.CONTENT.minigames[id], B = def.bank, errs = [];
+      for (const q of B) {
+        if (allIds.has(q.id)) errs.push('duplicate id ' + q.id); allIds.add(q.id);
+        if (![1, 2, 3].includes(q.diff)) errs.push('difficulty ' + q.id);
+        if (!q.why || (!q.q && !def.prompt)) errs.push('missing text ' + q.id);
+        if (!['mc', 'bin'].includes(q.type)) errs.push('type ' + q.id);
+        if (!Array.isArray(q.options) || q.options.length < 2 || q.options.length > 4 || new Set(q.options).size !== q.options.length) errs.push('options ' + q.id);
+        if (!(q.answer >= 0 && q.answer < q.options.length)) errs.push('answer ' + q.id);
+      }
+      localStorage.removeItem(DSS.CONFIG.storageKeys.quizPrefix + id);
+      const bag = DSS.quizBag(id); bag.load();
+      const drawn = B.map(() => bag.draw(5).id);
+      out[id] = { n: B.length, errs, unique: new Set(drawn).size, stored: !!localStorage.getItem(DSS.CONFIG.storageKeys.quizPrefix + id),
+        review: B.filter((q) => q.review).map((q) => q.id) };
+      localStorage.removeItem(DSS.CONFIG.storageKeys.quizPrefix + id); bag.load();
+    }
+    return out;
+  });
+  for (const [id, r] of Object.entries(cq)) {
+    check(`${id}: 40+ well-formed questions`, r.n >= 40 && r.errs.length === 0, `(${r.n}) ${r.errs.join(', ')}`);
+    check(`${id}: whole bank drawn with zero repeats, remembered in its own bag`, r.unique === r.n && r.stored, `(${r.unique}/${r.n})`);
+  }
+  console.log('Colleague quiz review:true →', Object.values(cq).flatMap((r) => r.review).join(', '), '\n');
 
   // ---- 5. play it for real: walk to the arcade cabinet, answer, screenshots ----
   await page.keyboard.press('Space'); await page.waitForTimeout(200);
