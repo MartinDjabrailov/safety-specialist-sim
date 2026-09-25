@@ -1,0 +1,2844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07060f">
+<title>Drug Safety Simulator</title>
+<style>
+/* =====================================================================
+   STYLES
+   ===================================================================== */
+:root{
+  --bg:#07060f; --panel:rgba(16,13,40,.9); --ink:#ece9ff; --dim:#8f89c2;
+  --cyan:#29e6ff; --pink:#ff3fb4; --yellow:#ffd23f; --green:#39ff88; --red:#ff3b3b;
+  --mono:"Cascadia Mono","Consolas","Lucida Console","Courier New",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg)}
+body{
+  color:var(--ink);font-family:var(--mono);font-weight:700;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;
+}
+button{font:inherit;color:inherit}
+#world{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:pointer}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+#hud .panel,#hud button{pointer-events:auto}
+.panel{background:var(--panel);border:2px solid #3a2f7a;border-radius:10px;box-shadow:0 0 14px #6a3cff44,inset 0 0 14px #000}
+#hudTop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 12px}
+#statsPanel{width:250px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.stat-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:12px;letter-spacing:1px;margin-bottom:3px}
+.stat-name{color:var(--c);text-shadow:0 0 8px var(--c);white-space:nowrap}
+.stat-warn{flex:1;text-align:right;color:var(--red);font-size:10px;visibility:hidden}
+.stat-val{min-width:3ch;text-align:right}
+.bar{position:relative;height:16px;border:2px solid #05040c;outline:2px solid var(--c);border-radius:5px;background:#0a0818;overflow:hidden}
+.fill{position:absolute;left:0;top:0;bottom:0;width:50%;background:var(--c);box-shadow:0 0 12px var(--c);transition:width .12s linear}
+.zone{position:absolute;top:0;bottom:0}
+.zone.low{left:0;background:repeating-linear-gradient(45deg,#ff3b3b55 0 4px,transparent 4px 8px)}
+.zone.high{right:0;background:repeating-linear-gradient(-45deg,#ff3b3b55 0 4px,transparent 4px 8px)}
+.segs{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 2px),#05040c calc(10% - 2px) 10%)}
+.stat.danger .bar{animation:dangerBar .5s steps(1) infinite}
+.stat.danger .stat-name{animation:dangerTxt .5s steps(1) infinite}
+.stat.danger .stat-warn{visibility:visible;animation:blink .5s steps(1) infinite}
+.stat.up .bar{box-shadow:0 0 14px var(--c)}
+.stat.down .bar{box-shadow:0 0 14px var(--red)}
+@keyframes dangerBar{50%{outline-color:var(--red);background:#3a0a14}}
+@keyframes dangerTxt{50%{color:var(--red);text-shadow:0 0 8px var(--red)}}
+#status{font-size:11px;letter-spacing:1px;min-height:1.2em;color:var(--dim)}
+#status.good{color:var(--green)} #status.warn{color:#ff9d2e} #status.bad{color:var(--red);animation:blink .4s steps(1) infinite}
+
+#midCol{display:flex;flex-direction:column;align-items:center;gap:8px}
+#infoPanel{padding:6px 14px;font-size:15px;letter-spacing:1px;white-space:nowrap}
+#dayLabel{color:var(--yellow);text-shadow:0 0 8px #ffd23f88}
+#clock{color:var(--cyan);margin:0 10px;text-shadow:0 0 8px #29e6ff88}
+#scoreLabel{color:var(--pink)}
+#topBtns{display:flex;gap:8px}
+.tb-btn{width:38px;height:32px;border-radius:8px;border:2px solid #4b3fa0;background:#1b1840;cursor:pointer;box-shadow:0 3px 0 #000;font-size:15px;line-height:1;padding:0}
+.tb-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #000}
+
+#casePanel{width:290px;padding:8px 10px;max-height:calc(100vh - 150px);overflow:hidden}
+.ph{display:flex;justify-content:space-between;font-size:13px;color:var(--cyan);letter-spacing:1px;margin-bottom:6px}
+#caseList{display:flex;flex-direction:column;gap:6px}
+.case{border:2px solid #3a2f7a;border-radius:8px;padding:5px 7px;background:#120f2c;cursor:pointer;font-size:11px}
+.case.active{border-color:var(--yellow);box-shadow:0 0 10px #ffd23f66}
+.case .tag{background:#2e3a7a;border-radius:4px;padding:0 4px;font-size:10px}
+.case.serious .tag{background:var(--red);color:#fff}
+.case.late{border-color:var(--red);animation:lateBlink .6s steps(1) infinite}
+@keyframes lateBlink{50%{background:#3a0a14}}
+.c1{display:flex;gap:6px;align-items:center}
+.c1 .dl{margin-left:auto}
+.c2{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:2px 0}
+.c3{display:flex;gap:6px;align-items:center}
+.pips{display:flex;gap:2px}
+.pip{width:9px;height:7px;border:1px solid #6a6fb0;border-radius:2px}
+.pip.done{background:var(--green);border-color:var(--green)}
+.pip.cur{background:var(--yellow);border-color:var(--yellow)}
+.dbar{flex:1;height:6px;background:#2a2550;border-radius:3px;overflow:hidden}
+.dbar>div{height:100%;background:var(--cyan)}
+.case.urgent .dbar>div{background:var(--red)}
+.empty{font-size:11px;color:var(--dim);padding:4px 2px}
+
+#workBar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);min-width:290px;padding:8px 12px;text-align:center;font-size:13px;letter-spacing:1px}
+.wb-bar{height:12px;margin-top:6px;border:2px solid #000;outline:2px solid var(--yellow);border-radius:4px;background:#1a1636;overflow:hidden}
+.wb-bar>div{height:100%;width:0;background:linear-gradient(90deg,var(--yellow),var(--green))}
+
+/* ---------- dialogue / scold scenes ---------- */
+#dialog{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:12;width:min(96vw,660px);
+  display:flex;gap:12px;padding:12px;background:#110d2b;border:4px solid var(--cyan);border-radius:14px;
+  box-shadow:0 0 0 4px #000,0 0 30px #29e6ff66;animation:popIn .2s ease-out;
+}
+#dialog.scold{border-color:var(--red);box-shadow:0 0 0 4px #000,0 0 34px #ff3b3b99;background:#1a0712}
+#dialog.director{border-color:var(--yellow);box-shadow:0 0 0 4px #000,0 0 44px #ffd23faa;background:#1a1204}
+#dlgPortrait{width:96px;height:96px;flex:none;border-radius:10px;background:#1f1a44;border:2px solid #3a2f7a}
+.dlg-body{flex:1;min-width:0}
+#dlgName{font-size:14px;letter-spacing:2px;color:var(--cyan)}
+.scold #dlgName{color:var(--red)} .director #dlgName{color:var(--yellow)}
+#dlgText{font-size:16px;line-height:1.35;margin:6px 0 10px;min-height:2.7em}
+#dlgChoices,#evChoices{display:flex;flex-direction:column;gap:6px}
+.choice{
+  display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;padding:7px 10px;border-radius:10px;
+  border:3px solid var(--yellow);background:#2a1a08;box-shadow:0 4px 0 #000;font-size:14px;line-height:1.2;
+}
+.choice:active,.choice.pressed{transform:translateY(3px);box-shadow:0 1px 0 #000}
+.choice .k{flex:none;width:24px;height:24px;border-radius:6px;background:var(--yellow);color:#140f2e;display:flex;align-items:center;justify-content:center}
+.choice .t{flex:1}
+.choice .h{font-size:11px;white-space:nowrap}
+.up{color:var(--green)} .down{color:#ff6b6b}
+@keyframes popIn{from{transform:translateX(-50%) scale(.6);opacity:0}}
+
+/* ---------- event alert ---------- */
+#eventBox{
+  position:fixed;left:50%;top:92px;transform:translateX(-50%);z-index:10;width:min(94vw,460px);
+  background:#16040f;border:4px solid var(--red);border-radius:14px;padding:12px 14px 14px;
+  box-shadow:0 0 0 4px #000,0 0 34px #ff3b3b99;animation:popIn .25s ease-out;pointer-events:auto;
+}
+#eventBox.meeting{border-color:var(--pink);box-shadow:0 0 0 4px #000,0 0 34px #ff3fb499}
+.ev-head{display:flex;justify-content:space-between;align-items:center;font-size:14px;letter-spacing:2px}
+.ev-head .tag{color:var(--yellow);animation:alertTag .4s steps(1) infinite}
+#evTime{color:var(--red);font-size:18px}
+#evTitle{font-size:16px;line-height:1.35;margin:8px 0;text-transform:uppercase;text-shadow:0 0 10px #ff3b3b88}
+.ev-timer{height:10px;border:2px solid #000;outline:2px solid var(--red);border-radius:4px;background:#2a0710;overflow:hidden;margin-bottom:10px}
+#evBar{height:100%;width:100%;background:linear-gradient(90deg,var(--red),var(--yellow))}
+#evIgnore{margin-top:8px;font-size:11px;color:var(--dim);text-align:right}
+@keyframes alertTag{50%{color:var(--red)}}
+
+/* ---------- mini-games ---------- */
+#mg{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:14;width:min(96vw,680px);max-height:94vh;overflow:auto;
+  background:#0f0b26;border:4px solid var(--pink);border-radius:16px;padding:12px 14px;
+  box-shadow:0 0 0 4px #000,0 0 40px #ff3fb488;animation:popIn2 .25s ease-out;
+}
+@keyframes popIn2{from{transform:translate(-50%,-50%) scale(.6);opacity:0}}
+.mg-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+#mgTitle{font-size:20px;letter-spacing:3px;color:var(--pink);text-shadow:0 0 10px #ff3fb4aa}
+#mgInfo{font-size:13px;color:var(--yellow);letter-spacing:1px}
+#mgBody{display:flex;flex-direction:column;align-items:center;gap:10px;min-height:200px;justify-content:center;text-align:center}
+#mgFoot{margin-top:10px;font-size:11px;color:var(--dim);text-align:center;letter-spacing:1px}
+#mgCanvas{width:100%;height:auto;border-radius:8px;border:3px solid #000;touch-action:none;cursor:ns-resize}
+.mg-intro{font-size:18px;line-height:1.4;max-width:480px}
+.mg-ready{color:var(--yellow);font-size:16px;letter-spacing:3px}
+.mg-line{font-size:15px;line-height:1.4;max-width:520px}
+.mg-reward{font-size:14px;letter-spacing:1px}
+.q-prompt{font-size:12px;color:var(--cyan);letter-spacing:2px}
+.q-text{font-size:18px;line-height:1.35;max-width:560px;min-height:2.6em}
+.q-opts{display:flex;flex-direction:column;gap:8px;width:100%;max-width:520px}
+.q-opts.two{flex-direction:row}
+.q-opts.two .choice{flex:1;justify-content:center}
+.choice.right{border-color:var(--green);background:#0b3a22;box-shadow:0 0 16px #39ff8888}
+.choice.wrong{border-color:var(--red);background:#3a0a14}
+.q-timer{width:100%;max-width:520px;height:10px;border:2px solid #000;outline:2px solid var(--pink);border-radius:4px;background:#2a0720;overflow:hidden}
+#qBar{height:100%;width:100%;background:linear-gradient(90deg,var(--pink),var(--yellow))}
+.q-feedback{font-size:18px;letter-spacing:3px}
+
+/* ---------- touch controls ---------- */
+#joy{position:fixed;left:22px;bottom:28px;width:130px;height:130px;border-radius:50%;border:3px solid #29e6ff88;background:rgba(41,230,255,.08);touch-action:none;pointer-events:auto;z-index:6}
+#knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:#29e6ff55;border:3px solid var(--cyan);pointer-events:none}
+#actBtn{position:fixed;right:22px;bottom:40px;width:100px;height:100px;border-radius:50%;border:4px solid var(--yellow);background:#3a2a08cc;color:var(--yellow);font-size:13px;box-shadow:0 5px 0 #000,0 0 18px #ffd23f66;touch-action:none;pointer-events:auto;z-index:6;padding:4px;line-height:1.1}
+#actBtn.held{transform:translateY(4px);box-shadow:0 1px 0 #000}
+
+/* ---------- overlays ---------- */
+#overlay{
+  position:fixed;inset:0;z-index:20;display:flex;align-items:safe center;justify-content:center;overflow-y:auto;
+  background:radial-gradient(ellipse at center,rgba(20,14,50,.95),rgba(4,3,12,.985));padding:18px 14px;touch-action:auto;
+}
+#ovInner{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;width:100%;max-width:760px}
+.px{image-rendering:pixelated;image-rendering:crisp-edges;max-width:100%;height:auto;display:block}
+.glow-cyan{filter:drop-shadow(0 0 8px #29e6ffaa)} .glow-yellow{filter:drop-shadow(0 0 10px #ffd23faa)}
+.glow-red{filter:drop-shadow(0 0 10px #ff3b3baa)} .glow-pink{filter:drop-shadow(0 0 10px #ff3fb4aa)}
+.ov-sub{color:var(--pink);letter-spacing:3px;font-size:14px;text-shadow:0 0 10px #ff3fb488}
+.ov-text{font-size:16px;line-height:1.4;max-width:540px}
+.ov-score{font-size:17px;color:var(--yellow);letter-spacing:1px;line-height:1.5}
+.ov-hi{font-size:14px;color:var(--dim);letter-spacing:2px}
+.ov-new{color:var(--green);font-size:16px;letter-spacing:2px;animation:newHi .4s steps(1) infinite}
+@keyframes newHi{50%{color:var(--yellow);text-shadow:0 0 10px #ffd23f}}
+.ov-help{font-size:12px;color:var(--dim);line-height:1.7;letter-spacing:1px}
+.ov-help b{color:var(--ink)}
+.ov-foot{font-size:11px;color:#5d578c;letter-spacing:1px;max-width:560px}
+.portrait{width:220px;height:190px;max-width:60vw}
+.startBtn{background:none;border:0;padding:8px;cursor:pointer}
+.blink{animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ---------- CRT, flash, shake ---------- */
+#crt{position:fixed;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px);animation:flicker 5s infinite}
+#crt::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.55) 100%)}
+@keyframes flicker{0%,100%{opacity:.85}48%{opacity:1}50%{opacity:.75}52%{opacity:1}}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0}
+#flash.on{animation:flash .35s ease-out}
+@keyframes flash{from{opacity:.35}to{opacity:0}}
+.shake-s{animation:shakeS .3s linear}
+.shake-l{animation:shakeL .55s linear}
+@keyframes shakeS{20%{transform:translate(-4px,2px)}40%{transform:translate(4px,-2px)}60%{transform:translate(-3px,-1px)}80%{transform:translate(3px,1px)}}
+@keyframes shakeL{10%{transform:translate(-10px,4px)}25%{transform:translate(9px,-5px)}40%{transform:translate(-8px,-3px)}55%{transform:translate(7px,4px)}70%{transform:translate(-5px,2px)}85%{transform:translate(3px,-2px)}}
+
+/* ---------- phone ---------- */
+@media (max-width:700px){
+  #hudTop{display:grid;grid-template-columns:1fr;gap:6px;padding:6px 8px}
+  #statsPanel{width:auto;display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;padding:6px 8px}
+  #status{grid-column:1 / -1;font-size:10px}
+  .stat-head{font-size:10px;letter-spacing:0;margin-bottom:2px}
+  .bar{height:11px}
+  #midCol{flex-direction:row;justify-content:space-between}
+  #infoPanel{font-size:12px;padding:4px 8px}
+  #clock{margin:0 6px}
+  .tb-btn{width:34px;height:28px}
+  #casePanel{width:auto;max-height:none;padding:5px 8px}
+  #caseList{gap:4px}
+  .case{padding:3px 6px;font-size:10px}
+  .case .c2{display:none}
+  .case:nth-child(n+3){display:none}
+  .ph{font-size:11px;margin-bottom:4px}
+  #workBar{bottom:160px;min-width:230px;font-size:11px}
+  #dialog{bottom:8px;padding:8px;gap:8px}
+  #dlgPortrait{width:64px;height:64px}
+  #dlgText{font-size:14px}
+  .choice{font-size:12px;padding:6px 8px}
+  #eventBox{top:auto;bottom:170px}
+  #evTitle{font-size:14px}
+  .portrait{width:170px;height:147px}
+}
+@media (prefers-reduced-motion:reduce){ .shake-s,.shake-l{animation:none} #crt{animation:none} }
+</style>
+</head>
+<body>
+<canvas id="world" aria-label="Office"></canvas>
+
+<div id="hud">
+  <div id="hudTop">
+    <div id="statsPanel" class="panel"><div id="status"></div></div>
+    <div id="midCol">
+      <div id="infoPanel" class="panel"><span id="dayLabel">DAY 1</span><span id="clock">09:00</span><span id="scoreLabel">0 PTS</span></div>
+      <div id="topBtns">
+        <button class="tb-btn" id="pauseBtn" tabindex="-1" title="Pause (P)" aria-label="Pause">❚❚</button>
+        <button class="tb-btn" id="muteBtn" tabindex="-1" title="Mute (M)" aria-label="Mute">🔊</button>
+      </div>
+    </div>
+    <div id="casePanel" class="panel">
+      <div class="ph"><span>CASE QUEUE</span><span id="caseCount">0</span></div>
+      <div id="caseList"></div>
+    </div>
+  </div>
+  <div id="workBar" class="panel" hidden><div id="wbText"></div><div class="wb-bar"><div id="wbFill"></div></div></div>
+  <div id="joy" hidden><div id="knob"></div></div>
+  <button id="actBtn" tabindex="-1" hidden>ACTION</button>
+</div>
+
+<div id="eventBox" hidden role="alertdialog" aria-live="assertive">
+  <div class="ev-head"><span class="tag">⚠ ALERT ⚠</span><span id="evTime">10.0</span></div>
+  <div id="evTitle"></div>
+  <div class="ev-timer"><div id="evBar"></div></div>
+  <div id="evChoices"></div>
+  <div id="evIgnore"></div>
+</div>
+
+<div id="dialog" hidden>
+  <canvas id="dlgPortrait" width="192" height="192"></canvas>
+  <div class="dlg-body">
+    <div id="dlgName"></div>
+    <div id="dlgText"></div>
+    <div id="dlgChoices"></div>
+  </div>
+</div>
+
+<div id="mg" hidden>
+  <div class="mg-head"><span id="mgTitle"></span><span id="mgInfo"></span></div>
+  <div id="mgBody"></div>
+  <div id="mgFoot"></div>
+</div>
+
+<div id="overlay"><div id="ovInner"></div></div>
+<div id="flash"></div>
+<div id="crt"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   CONFIG: every balance/tuning knob lives here
+   ===================================================================== */
+const CONFIG = {
+  secondsPerDay: 90,                        // 1 working day = 90 real seconds
+  clock: { startHour: 9, endHour: 17.5 },   // clock shown in the top bar
+
+  stats: {
+    //            start  drain/s  flashes below
+    caffeine:   { start: 70, drain: 0.35, danger: 20, label: 'CAFFEINE',   short: 'CAF',  color: '#ffb000', icon: '☕' },
+    energy:     { start: 80, drain: 0.2,  danger: 20, label: 'ENERGY',     short: 'NRG',  color: '#39ff88', icon: '⚡' },
+    sanity:     { start: 80, drain: 0.15, danger: 20, label: 'SANITY',     short: 'SAN',  color: '#ff5ae0', icon: '🧠' },
+    compliance: { start: 80, drain: 0.05, danger: 25, label: 'COMPLIANCE', short: 'COMP', color: '#29d9ff', icon: '📋' },
+  },
+  difficulty: { drainPerDay: 0.12, arrivalPerDay: 0.12 },   // each new day: drains +12%, cases arrive 12% faster
+  energyRegen: { rate: 0.5, caffeineMin: 40, caffeineMax: 85 }, // "in the zone" energy regen
+  jitter: {
+    threshold: 90,          // above this Caffeine Casey is jittery...
+    sanityDrain: 0.4,       // ...and loses this much Sanity per second
+    coffeeSanityHit: -4,    // extra Sanity hit when a coffee pushes him over the threshold
+    overloadAt: 97,         // at/above this Caffeine the OVERLOAD timer runs
+    overloadSeconds: 12,    // seconds of overload before the SUSAR death (one coffee never kills; chugging does)
+    overloadRecover: 0.5,   // overload timer drains at this rate when below overloadAt
+  },
+  moods: { exhaustedBelow: 25, stressedBelow: 30 },
+
+  // Pokemon-style grid movement
+  player: {
+    stepTime: 0.15,         // seconds per tile
+    turnDelay: 0.09,        // a quick tap only turns; holding longer than this walks
+    exhaustedStepMult: 1.4, // slower when exhausted
+    jitteryStepMult: 0.75,  // faster when jittery
+  },
+
+  coffee: { caffeine: 30, energy: 12, brewSeconds: 1.5, cooldown: 6 },
+  work: {
+    steps: [
+      { id: 'triage',    label: 'TRIAGE',        seconds: 1.5 },
+      { id: 'meddra',    label: 'MEDDRA CODING', seconds: 2 },
+      { id: 'narrative', label: 'NARRATIVE',     seconds: 3 },
+      { id: 'qc',        label: 'QC',            seconds: 1.5 },
+      { id: 'submit',    label: 'SUBMIT',        seconds: 1 },
+    ],
+    energyPerSec: 0.6,      // extra drain while working
+    sanityPerSec: 0.25,
+    qcBounceChance: 0.2,    // chance QC sends a case back to Narrative (once per case) + manager scolding
+    exhaustedSpeed: 0.6,    // work speed when Energy is low
+    jitterySpeed: 1.25,     // work speed when jittery
+  },
+  cases: {
+    firstAt: 4,                          // seconds until the first case
+    arrivalMin: 24, arrivalMax: 34,      // seconds between new cases
+    seriousChance: 0.3,
+    seriousDeadline: 55,                 // compressed "7-day" clock, in seconds
+    normalDeadline: 100,                 // compressed "15-day" clock, in seconds
+    onTime: { compliance: 10 },
+    late: { compliance: -10 },           // when a deadline passes (+ manager scolding)
+    lateSubmit: { compliance: 3 },       // submitting a case that was already late
+  },
+  breakArea: { sanityPerSec: 3, maxSeconds: 12 },   // longer than this in the break area = scolding
+  printer: { cooldown: 8, jamChance: 0.6 },
+  props: { cooldown: 20 },                          // flavor objects (fridge, arcade...) give small effects this often
+
+  npc: {
+    colleagueStep: 0.45, managerStep: 0.28, directorStep: 0.26,   // seconds per tile
+    chatCooldown: 30,       // seconds before the same colleague will chat again
+    favorChance: 0.3,       // chance a colleague asks for a "quick favor" (adds a case)
+    idleMin: 3, idleMax: 8, deskMin: 6, deskMax: 14,
+  },
+  scold: { cooldown: 8, maxQueue: 2, giveUpAfter: 25, exclaimSeconds: 0.8 },
+  director: { checkEvery: 180, chance: 0.3, lowCompliance: 40, lowComplianceCooldown: 90 },
+
+  events: {
+    firstMin: 25, firstMax: 35,
+    minGap: 30, maxGap: 60,             // seconds between alerts
+    responseTime: 10,                   // seconds to answer before the ignore penalty
+    meetingTravelTime: 20,              // seconds to reach the meeting room
+    meetingSeconds: 8,                  // how long a meeting eats
+  },
+  // Mini-games (the office is paused while you play)
+  minigames: {
+    cooldown: 45,                 // seconds before the same mini-game can be played again
+    quizRounds: 5,                // rounds per quiz game
+    quizSeconds: 6,               // seconds per quiz round
+    quizReward: { sanityBase: 4, sanityPerCorrect: 3, compliancePerCorrect: 2 },
+    pong: { pointsToWin: 3, ballSpeed: 230, speedUpPerHit: 1.07, maxBallSpeed: 520, paddleSpeed: 300, cpuSpeed: 185,
+            win: { sanity: 22, energy: 6 }, lose: { sanity: 10 } },
+  },
+  score: { perDay: 100, perCase: 25 },
+  view: { tilesAcross: 22, minTiles: 9 },
+  audio: { volume: 0.35, music: true, musicVolume: 0.4, bpm: 124, dangerTempo: 1.25 },
+  fx: { restartLockMs: 900 },
+  storageKeys: { hi: 'drugSafetySim.hiScore', muted: 'drugSafetySim.muted' },
+};
+
+/* =====================================================================
+   CONTENT: every dialogue line, event and joke lives here.
+   All people, cases and products are fictional.
+   Effects keys: caffeine, energy, sanity, compliance (stat deltas),
+   cases / serious / favor (add cases), removeCase, dbDown (seconds).
+   ===================================================================== */
+const CONTENT = {
+  title: 'DRUG SAFETY SIMULATOR',
+  subtitle: 'A PHARMACOVIGILANCE SURVIVAL GAME',
+  footer: 'An unofficial, affectionate parody of pharmacovigilance life at Thermo Fisher. All cases, products and people are fictional.',
+
+  people: {
+    casey: { name: 'Case-Closed Casey',
+      look: { skin: '#f2c29b', hair: '#5a3825', hairStyle: 'cowlick', shirt: '#8fd3ff', jacket: '#17807a', pants: '#2f3355', lanyard: '#ff3b3b', headset: true } },
+
+    nora: { name: 'Nora Narrative', role: 'colleague', favor: true,
+      look: { skin: '#e0a879', hair: '#c9c9d6', hairStyle: 'bun', shirt: '#fff3d6', jacket: '#9b5de5', pants: '#3a2f5a', glasses: true },
+      talks: [
+        { line: "I wrote a narrative so moving the reporter cried. Well, they didn't reply. Same thing.",
+          choices: [
+            { text: 'Beautiful. Truly.',              effects: { sanity: 10 },               reply: 'Thank you. Chapter 2 is the lab values.' },
+            { text: 'Can you write mine?',            effects: { sanity: 6, compliance: 3 }, reply: 'Only if it has a plot twist.' },
+            { text: 'Was it under 2000 characters?',  effects: { sanity: 4 },                reply: 'Rules are for E2B files.' } ] },
+        { line: "Gossip: someone coded 'felt weird' as 'Feeling abnormal'. Scandal.",
+          choices: [
+            { text: "That's... technically right", effects: { sanity: 8 },                   reply: 'Technically right is the best kind of right.' },
+            { text: 'Who?!',                        effects: { sanity: 12, compliance: -2 },  reply: "I'll never tell. (It was Max.)" } ] },
+        { line: 'My narratives have a beginning, a middle and a causality assessment.',
+          choices: [
+            { text: 'Like a real novel!',  effects: { sanity: 9 },     reply: 'A thriller. The villain is the dechallenge.' },
+            { text: 'Teach me your ways',  effects: { compliance: 4 }, reply: 'Step one: never write "patient felt bad".' } ] },
+      ] },
+
+    max: { name: 'Max MedDRA', role: 'colleague', favor: true,
+      look: { skin: '#8d5a3b', hair: '#1b1b1b', hairStyle: 'short', shirt: '#2ecc71', jacket: '#27ae60', pants: '#2b2f45', hoodie: true, headphones: true },
+      talks: [
+        { line: "'Headache' or 'Head discomfort'? I've been staring at the LLTs for an hour.",
+          choices: [
+            { text: 'Headache. Go outside.',    effects: { sanity: 8 },                   reply: 'Outside? Is that an SOC?' },
+            { text: 'Check the browser again',  effects: { compliance: 4, sanity: 4 },    reply: "80,000 LLTs. I've read 12." },
+            { text: "Code it as 'vibes'",       effects: { sanity: 12, compliance: -3 },  reply: 'LLT not found. Tragic.' } ] },
+        { line: 'New MedDRA version drops in March. I have already cried twice.',
+          choices: [
+            { text: 'Group hug?',        effects: { sanity: 12 },               reply: 'Coded as: Emotional support (LLT).' },
+            { text: 'Recode everything!', effects: { compliance: 5, energy: -6 }, reply: "You monster. Let's go." } ] },
+      ] },
+
+    lin: { name: 'Lin Literature', role: 'colleague', favor: true,
+      look: { skin: '#f5d0a9', hair: '#2b2b2b', hairStyle: 'ponytail', shirt: '#ff9d2e', pants: '#3b3050', papers: true },
+      talks: [
+        { line: 'Literature batch landed. 400 abstracts. 399 are about mice.',
+          choices: [
+            { text: 'Any about humans?',      effects: { sanity: 8 },  reply: "One. It's a letter to the editor." },
+            { text: 'Mice have feelings too', effects: { sanity: 12 }, reply: 'They do. None of them are ICSRs though.' } ] },
+        { line: 'I found an adverse event in a conference poster. From 2011. In Portuguese.',
+          choices: [
+            { text: 'Valid case!',              effects: { compliance: 5, energy: -4 }, reply: 'Valid case. Invalid Portuguese.' },
+            { text: "Pretend you didn't see it", effects: { compliance: -4, sanity: 8 }, reply: 'I saw nothing. I SAW NOTHING.' } ] },
+      ] },
+
+    quinn: { name: 'Quinn QC', role: 'colleague', favor: false,
+      look: { skin: '#c68642', hair: '#e25b3c', hairStyle: 'curly', shirt: '#1fc7b6', pants: '#23304f', pen: true },
+      talks: [
+        { line: "Found a typo in your case. It's fine. It lives in the audit trail forever now.",
+          choices: [
+            { text: 'Thanks, Quinn :)', effects: { sanity: 6, compliance: 3 },  reply: 'Anytime. Literally any time. I never stop.' },
+            { text: "It's a feature",   effects: { sanity: 10, compliance: -3 }, reply: 'Features also need a CAPA.' } ] },
+        { line: 'My red pen and I have been through a lot this week.',
+          choices: [
+            { text: 'Take a break, both of you', effects: { sanity: 10 },    reply: 'The pen never rests.' },
+            { text: 'Can I borrow it?',          effects: { compliance: 5 }, reply: 'Nobody touches the pen.' } ] },
+      ] },
+
+    manager: { name: 'Pat the Manager', role: 'manager',
+      look: { skin: '#f0b890', hair: '#8a6a4a', hairStyle: 'bald', shirt: '#e9edf5', jacket: '#23306b', pants: '#1c2244', tie: '#e53935', mug: true },
+      talks: [
+        { line: "How's your queue? Remember: timelines are a love language.",
+          choices: [
+            { text: 'Under control!', effects: { sanity: 4 },                  reply: 'Love that energy.' },
+            { text: "It's a lot...",  effects: { sanity: 8, compliance: -1 },  reply: "Let's circle back on that. Supportively." } ] },
+        { line: "I blocked 30 minutes in your calendar called 'Focus Time'. Then I booked a meeting in it.",
+          choices: [
+            { text: 'Classic Pat',    effects: { sanity: 6 },  reply: "I'm a classic." },
+            { text: 'Can I decline?', effects: { sanity: 3 },  reply: 'You can. The calendar will remember.' } ] },
+      ],
+      scold: {
+        late:    { effects: { sanity: -6 }, lines: ["Day 15 was yesterday. Can we talk about 'timelines'?", 'A late case! Somewhere, a regulator just felt a disturbance.', "Late submission. I'll need a deviation. And a hug."] },
+        qc:      { effects: { sanity: -5 }, lines: ["QC sent it back. They said the narrative 'reads like a haiku'.", "QC bounce. Apparently 'patient felt bad' is not a narrative.", 'QC found 3 issues. One of them is the font.'] },
+        break:   { effects: { sanity: -4, compliance: -2 }, lines: ["Long break? The inbox didn't take one.", 'The sofa is lovely, I know. The cases are not.', 'Is this a break or a sabbatical?'] },
+        meeting: { effects: { sanity: -4 }, lines: ['You missed the meeting. We made decisions. About you.', 'Missed training! The read-and-sign now reads YOU.'] },
+      },
+      replies: [
+        { text: 'Sorry, on it!',              effects: { energy: -3 },                reply: "That's the spirit!" },
+        { text: 'The database did it',        effects: { compliance: -2, sanity: 2 }, reply: 'The database has a union, you know.' },
+        { text: '*nods while sipping coffee*', effects: { caffeine: 5, sanity: -3 },   reply: '...Are you listening? Good.' },
+      ] },
+
+    director: { name: 'The Director', role: 'director',
+      look: { skin: '#d9a57a', hair: '#dcdce6', hairStyle: 'slick', shirt: '#ffffff', jacket: '#121218', pants: '#121218', tie: '#121218', sunglasses: true, lanyard: '#d4af37', scale: 1.12 },
+      talks: [
+        { line: "Walk with me. Actually, don't. I walk alone.",
+          choices: [
+            { text: 'Yes, Director!',   effects: { sanity: -2 }, reply: 'Good. Carry on.' },
+            { text: 'Nice sunglasses',  effects: { sanity: 5 },  reply: "They're prescription. For strategic vision." } ] },
+      ],
+      lowCompliance: { line: 'Why is compliance at {compliance}%? I want 100%. By lunch.', effects: { sanity: -10 } },
+      scenes: [
+        { line: 'Inspectors arrive Monday. Smile. Never say "probably".',        effects: { sanity: -8, energy: -6 } },
+        { line: 'The PBRER is due Friday. Which Friday? THIS Friday.',          effects: { energy: -10 } },
+        { line: 'I read a case narrative today. Just one. It changed me.',      effects: { sanity: -6, compliance: 3 } },
+        { line: "We're launching in 40 countries. Your inbox has been informed.", effects: { sanity: -8, cases: 1 } },
+      ],
+      replies: [
+        { text: 'Absolutely, 100%!',   effects: { sanity: -4 },                reply: 'Excellent. 110% next time.' },
+        { text: "Define 'compliance'", effects: { compliance: -5, sanity: 4 }, reply: "...I'll pretend I didn't hear that." },
+        { text: '*salutes*',           effects: { energy: -2 },                reply: 'At ease. Actually, stay tense.' },
+      ] },
+  },
+
+  // Mini-games. Colleagues offer theirs as an extra reply in conversation; the ping pong table starts TABLE TENNIS.
+  // Quiz items: { q: prompt, options: [...], answer: index }. Options are shuffled in the game.
+  minigames: {
+    meddra: { host: 'max', title: 'CODE IT!', intro: 'Match the reporter\'s words to the right Preferred Term!', offer: 'Play "Code It!" with Max',
+      prompt: 'THE REPORTER SAID:',
+      items: [
+        { q: '"My head is pounding since the second tablet."', options: ['Headache', 'Pyrexia', 'Back pain'], answer: 0 },
+        { q: '"Felt like throwing up all morning." (did not vomit)', options: ['Nausea', 'Vomiting', 'Diarrhoea'], answer: 0 },
+        { q: '"Burning up, 39.5 degrees."', options: ['Pyrexia', 'Hyperhidrosis', 'Chills'], answer: 0 },
+        { q: '"Could not sleep a wink."', options: ['Insomnia', 'Somnolence', 'Fatigue'], answer: 0 },
+        { q: '"Itchy skin everywhere, but no rash."', options: ['Pruritus', 'Rash', 'Dry skin'], answer: 0 },
+        { q: '"My heart is racing like a hamster on a wheel."', options: ['Palpitations', 'Bradycardia', 'Chest pain'], answer: 0 },
+        { q: '"Everything tastes like old coins."', options: ['Dysgeusia', 'Ageusia', 'Dry mouth'], answer: 0 },
+        { q: '"The pill did absolutely nothing."', options: ['Drug ineffective', 'Drug interaction', 'Off label use'], answer: 0 },
+        { q: '"Fell asleep in the middle of a meeting."', options: ['Somnolence', 'Insomnia', 'Syncope'], answer: 0 },
+        { q: '"Ringing in my ears since Tuesday."', options: ['Tinnitus', 'Deafness', 'Ear pain'], answer: 0 },
+      ],
+      results: ['Max: "You speak fluent MedDRA. Marry me. Professionally."', 'Max: "Solid coding. The LLTs approve."', 'Max: "Close enough for a first draft..."'] },
+    lit: { host: 'lin', title: 'ABSTRACT BLITZ', intro: 'Is this abstract a human case worth processing?', offer: 'Play "Abstract Blitz" with Lin',
+      prompt: 'ABSTRACT:',
+      items: [
+        { q: 'Mice given Compound Z showed reduced fur density.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
+        { q: 'A 58-year-old man developed jaundice two weeks after starting Product A.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
+        { q: 'In vitro: Compound Z inhibits an enzyme in cell cultures.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
+        { q: 'A pregnant woman exposed to Product A delivered a healthy baby.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
+        { q: 'Rats fed Product A for 90 days gained weight.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
+        { q: 'Two patients on Product A had a severe rash; one was hospitalised.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
+        { q: 'A review of Product A manufacturing costs in 2024.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
+        { q: 'A child swallowed Product A tablets by accident; no symptoms.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
+        { q: 'Zebrafish embryos exposed to Compound Z swam in circles.', options: ['Relevant human case', 'Not relevant'], answer: 1 },
+        { q: 'An elderly patient fell and broke a hip after the dose was doubled.', options: ['Relevant human case', 'Not relevant'], answer: 0 },
+      ],
+      results: ['Lin: "You screened faster than the mice could run."', 'Lin: "Nice. Only a few mice got through."', 'Lin: "...We\'ll call it training data."'] },
+    serious: { host: 'nora', title: 'SERIOUS OR NOT?', intro: 'Apply the seriousness criteria. Fast!', offer: 'Play "Serious or Not?" with Nora',
+      prompt: 'THE EVENT:',
+      items: [
+        { q: 'Admitted to hospital overnight for liver failure.', options: ['Serious', 'Non-serious'], answer: 0 },
+        { q: 'Mild headache, gone after a nap.', options: ['Serious', 'Non-serious'], answer: 1 },
+        { q: 'Anaphylaxis in the ER. Life-threatening.', options: ['Serious', 'Non-serious'], answer: 0 },
+        { q: 'Nausea for two days, no treatment needed.', options: ['Serious', 'Non-serious'], answer: 1 },
+        { q: 'Baby born with a heart defect after exposure in pregnancy.', options: ['Serious', 'Non-serious'], answer: 0 },
+        { q: 'Patient died. Relationship to the drug unknown.', options: ['Serious', 'Non-serious'], answer: 0 },
+        { q: 'Itchy rash on one arm, gone in a week.', options: ['Serious', 'Non-serious'], answer: 1 },
+        { q: 'Permanent hearing loss after treatment.', options: ['Serious', 'Non-serious'], answer: 0 },
+        { q: 'Felt a bit tired after the dose.', options: ['Serious', 'Non-serious'], answer: 1 },
+        { q: 'Seizure treated in the ER (medically important).', options: ['Serious', 'Non-serious'], answer: 0 },
+      ],
+      results: ['Nora: "Flawless. I\'m writing a narrative about you."', 'Nora: "Good instincts. Chapter approved."', 'Nora: "Let\'s re-read the criteria together. Over tea."'] },
+    qc: { host: 'quinn', title: 'SPOT THE ERROR', intro: 'Find the field that would fail QC.', offer: 'Play "Spot the Error" with Quinn',
+      prompt: 'QC CHECK: WHICH FIELD IS WRONG?',
+      items: [
+        { q: '', options: ['Age: 250 years', 'Sex: Female', 'Event: Headache', 'Outcome: Recovered'], answer: 0 },
+        { q: '', options: ['Sex: Male', 'Pregnancy: Yes, 12 weeks', 'Event: Rash', 'Reporter: HCP'], answer: 1 },
+        { q: '', options: ['Event: Hospitalised 5 days', 'Seriousness: Non-serious', 'Outcome: Recovered', 'Age: 47'], answer: 1 },
+        { q: '', options: ['Drug: Product A', 'Patient: "some guy"', 'Event: Nausea', 'Reporter: Pharmacist'], answer: 1 },
+        { q: '', options: ['Dose: 5000 tablets daily', 'Route: Oral', 'Event: Dizziness', 'Sex: Female'], answer: 0 },
+        { q: '', options: ['Event: Headache', 'Coded PT: Fracture', 'Outcome: Resolved', 'Age: 41'], answer: 1 },
+        { q: '', options: ['Outcome: Fatal', 'Seriousness: Non-serious', 'Event: Stroke', 'Age: 60'], answer: 1 },
+        { q: '', options: ['Onset: 1 week BEFORE first dose (causality: related)', 'Drug: Product A', 'Event: Insomnia', 'Reporter: Consumer'], answer: 0 },
+      ],
+      results: ['Quinn: "Zero findings. I have nothing to circle. I feel lost."', 'Quinn: "Sharp eyes. The red pen salutes you."', 'Quinn: "The red pen has... notes."'] },
+    pong: { title: 'TABLE TENNIS', intro: 'First to 3! W/S or arrows (or drag) to move.',
+      win: ['You win! Your wrists are now fully compliant.', 'Victory! Nobody will ever mention this in a 1:1.'],
+      lose: ['You lost, but your sanity won.', 'Defeat. Coded as: Hand-eye coordination decreased.'] },
+  },
+
+  favor: { line:"Quick favor? It's just one case. With 14 suspect drugs.",
+    choices: [
+      { text: 'Sure, send it over',       effects: { favor: 1, sanity: 5 },     reply: "You're a hero. A tired hero." },
+      { text: "Sorry, I'm drowning",      effects: { sanity: -2 },              reply: 'Totally fine. (It was not fine.)' },
+      { text: 'Only if you bring coffee', effects: { favor: 1, caffeine: 15 },  reply: 'Deal. Oat milk, right?' } ] },
+  busy: ["Can't talk. I'm deep in a MedDRA wormhole.", 'Deadline in 10 minutes. Talk later!', "I'm on a call. Pretend I'm furniture.", 'Shh. I am reconciling.'],
+
+  cases: {
+    serious: ['Hospitalisation after dose 2', 'Anaphylaxis, ER visit', 'Liver enzymes through the roof', 'Fatal outcome, reporter unsure', 'Life-threatening rash', 'Congenital anomaly query'],
+    normal: ["Headache, 'kind of'", 'Nausea after breakfast dose', 'Rash, photo attached (blurry)', "Lack of efficacy, 'just vibes'", 'Medication error: took it twice', 'Off-label use: for the cat', 'Pregnancy exposure, no AE', "Consumer says 'it tastes weird'", 'Insomnia (reporter works in PV)'],
+    sources: ['HCP', 'CONSUMER', 'LITERATURE', 'CLINICAL TRIAL', 'SOCIAL MEDIA'],
+  },
+
+  events: [
+    { id: 'dbdown', title: 'The safety database is DOWN!',
+      choices: [
+        { text: 'Wait it out',        effects: { dbDown: 10, sanity: -4 }, say: 'Refreshing... refreshing... refreshing...' },
+        { text: 'Restart your PC',    effects: { dbDown: 4, energy: -8 },  say: 'Installing 47 updates. Do not turn off.' },
+        { text: 'Email IT: URGENT!!!', effects: { dbDown: 10, sanity: 3 }, say: 'Auto-reply: IT is at lunch.' } ],
+      ignore: { dbDown: 12 }, ignoreSay: 'The database is down. So is morale.' },
+    { id: 'litbatch', title: 'Literature screening batch arrived!',
+      choices: [
+        { text: 'Screen it now',                effects: { cases: 1, energy: -6, compliance: 4 }, say: 'Found one real case in 400 abstracts. Nature is healing.' },
+        { text: "Put it in the 'later' pile",   effects: { cases: 2 },                           say: "The 'later' pile now has its own postcode." } ],
+      ignore: { cases: 2, compliance: -4 }, ignoreSay: 'The batch screened itself. Badly.' },
+    { id: 'pbrer', title: 'PBRER due Friday!',
+      choices: [
+        { text: 'Write your section',       effects: { energy: -12, compliance: 10 }, say: 'Section 16.3 written. Section 16.4 haunts me.' },
+        { text: '"Which PBRER?"',           effects: { compliance: -8, sanity: 4 },   say: 'All of them. It is always all of them.' },
+        { text: "Copy last year's section", effects: { compliance: -4, sanity: 6 },   say: "Find & replace '2025' with '2026'. Done." } ],
+      ignore: { compliance: -10 }, ignoreSay: 'The PBRER will remember this.' },
+    { id: 'followup', title: 'Reporter never answered follow-up #3',
+      choices: [
+        { text: 'Send follow-up #4',         effects: { compliance: 5, sanity: -5 },            say: 'Subject: Re: Re: Re: Fwd: Gentle reminder' },
+        { text: 'Call them',                 effects: { energy: -6, sanity: 4, compliance: 3 },  say: 'They picked up! Then they hung up.' },
+        { text: 'Close: lost to follow-up',  effects: { compliance: -3, sanity: 6 },            say: 'Goodbye, sweet case.' } ],
+      ignore: { compliance: -6 }, ignoreSay: 'Follow-up #5 is now overdue.' },
+    { id: 'duplicate', title: 'DUPLICATE CASE DETECTED',
+      choices: [
+        { text: 'Merge them',          effects: { removeCase: 1, energy: -5 },   say: 'Two became one. Very romantic.' },
+        { text: 'Process both anyway', effects: { sanity: -8, compliance: -3 },  say: 'Double the cases, double the fun?' } ],
+      ignore: { compliance: -5 }, ignoreSay: 'The duplicate has spawned a triplicate.' },
+    { id: 'audit', title: 'AUDIT NEXT WEEK',
+      choices: [
+        { text: 'Tidy up the files',   effects: { compliance: 10, sanity: -8 }, say: 'Everything is filed. Even me.' },
+        { text: 'Panic quietly',       effects: { sanity: -6 },                 say: '*internal screaming, but compliant*' },
+        { text: 'Re-sign every SOP',   effects: { compliance: 6, energy: -6 },  say: 'Signed 47 SOPs. My signature is now a line.' } ],
+      ignore: { compliance: -10 }, ignoreSay: 'The auditors found the folder named "misc".' },
+    { id: 'replyall', title: "REPLY-ALL STORM: 900 people CC'd",
+      choices: [
+        { text: 'Mute the thread',           effects: { sanity: 6 },                 say: 'Silence. Beautiful silence.' },
+        { text: '"Please remove me"',        effects: { sanity: -8 },                say: 'You have become the storm.' },
+        { text: 'Reply-all: STOP REPLYING',  effects: { sanity: -12, compliance: -2 }, say: 'Oh no. Oh no no no.' } ],
+      ignore: { sanity: -6 }, ignoreSay: '900 notifications. My laptop is warm.' },
+    { id: 'serious', title: 'SERIOUS CASE: HOSPITALISATION!',
+      choices: [
+        { text: 'Drop everything!',   effects: { serious: 1, energy: -4 }, say: 'The 7-day clock is ticking!' },
+        { text: 'Add it to the queue', effects: { serious: 1 },            say: 'Queued. Nervously.' } ],
+      ignore: { serious: 1, compliance: -3 }, ignoreSay: 'It landed in the queue anyway.' },
+    { id: 'signal', type: 'meeting', title: 'SIGNAL DETECTION MEETING! Get to the meeting room.',
+      startSay: 'Sitting down. Is that a signal or just my stomach?',
+      attend: { energy: -6, sanity: -3, compliance: 6 }, endSay: 'Signal refuted. Meeting confirmed as a risk.',
+      skip: { compliance: -12 }, skipSay: 'I missed the signal meeting. That is a signal.' },
+    { id: 'training', type: 'meeting', title: 'SOP READ-AND-SIGN TRAINING! Get to the meeting room.',
+      startSay: 'Slide 1 of 94. Here we go.',
+      attend: { energy: -4, sanity: -5, compliance: 8 }, endSay: 'Signed. Read? Also yes. Mostly.',
+      skip: { compliance: -12 }, skipSay: 'Training overdue. The LMS has sent a sternly worded email.' },
+  ],
+
+  props: {
+    F: { lines: ["A yogurt labelled: 'NOT YOURS. -Q'", 'The fridge smells like an unsolved case.', 'Someone is storing a stool sample in here. Wait, no, it is hummus.'] },
+    a: { lines: ['High score: QC QUINN, 999,999. Of course.', 'INSERT COIN. You only have coffee.'], effects: { sanity: 4 } },
+    v: { lines: ['PV NEWS: Local specialist reads entire SOP. More at 11.', "Now showing: 'The Narrative' (director's cut, 4 hours)."], effects: { sanity: 3 } },
+    W: { lines: ["The whiteboard says 'SIGNALS?' with three question marks.", 'Someone drew the MedDRA hierarchy. It is beautiful.'] },
+    T: { lines: ['The meeting table. It has seen things.', 'A forgotten laptop shows 214 unread chats.'] },
+    X: { lines: ["A mug: 'WORLD'S OKAYEST MANAGER'.", 'A sticky note: "Ask Casey about timelines :)"'] },
+    Z: { lines: ['A single pen. Very expensive. Do not touch.', 'A framed photo of a compliance chart at 100%.'] },
+    s: { lines: ['You sit. The sofa sits back.', 'The sofa has absorbed years of sighs.'], effects: { sanity: 3 } },
+    w: { lines: ['Hydration: a control measure.', 'The water cooler gossip today is about MedDRA 29.0.'], effects: { energy: 2 } },
+    k: { lines: ['Donuts! Evidence of a successful audit.', 'Crumbs. Someone had the last donut. Classic.'], effects: { sanity: 3 } },
+    H: { lines: ['Binders labelled SOP-001 to SOP-999. SOP-404 is missing.', 'A dusty copy of the ICH E2B guideline.'] },
+    D: { lines: ["Not your desk. A sticky note says 'I'M IN A MEETING'.", 'Someone else\'s desk. Three empty mugs. A true colleague.'] },
+    p: { lines: ['A plant. Thriving. Unlike me.', 'The plant has better work-life balance than you.'] },
+    g: { lines: ['Ping pong! Nobody has had time to play since 2019.'] },
+    K: { lines: ['The kitchen counter. Sticky. Mysteriously sticky.'] },
+  },
+  printer: {
+    jam: { effects: { sanity: -3 }, lines: ['PC LOAD LETTER?!', 'Paper jam in tray 2. There is no tray 2.', 'It printed 40 blank pages. Art.'] },
+    ok:  { effects: { sanity: 4 },  lines: ['It printed! Frame it.', 'Printed on the first try. Suspicious.'] },
+    busy: ['The printer is thinking. Give it a moment.'],
+  },
+
+  lines: {
+    start: ['Morning! Headset on. Coffee pending.', "Let's close some cases.", 'Zero late cases today. Probably.'],
+    coffee: ['Coffee: the only drug with no reported AEs. (Citation needed.)', 'Bean there, triaged that.', 'Expected: energy. Unexpected: none.', 'Espresso yourself.'],
+    coffeeJittery: ['I CAN HEAR THE DATABASE.', 'MY HEART IS DOING EXPEDITED REPORTING.', 'Is this what time tastes like?!'],
+    coffeeWait: ['Still brewing. Patience is a control measure.', 'The machine needs a moment. So do I.'],
+    work: ["Is it 'Pyrexia' or 'Fever'? Yes.", 'Checking seriousness criteria...', "Causality: 'possible'. Everything is possible.", "'The patient, a 45-year-old...'", 'Four minimum criteria: check, check, check, check!'],
+    steps: {
+      triage: ['Valid case! Four criteria, zero doubts.'],
+      meddra: ['PT coded. LLT agonized over.'],
+      narrative: ['Narrative written. Oscar-worthy.'],
+      qc: ['QC passed! Quinn will be so proud.'],
+      submit: ['SUBMITTED! Case closed.'],
+    },
+    qcBounce: ['QC sent it back. My narrative is "vibes"?!', 'Bounced by QC. Back to the narrative.'],
+    late: ['A case just went LATE. Oh no.', 'Deadline missed. I can hear Pat coming.'],
+    noCases: ['Inbox empty. Suspicious.', 'No cases? Refreshing just in case...'],
+    dbDown: 'Database down. Staring at the spinner.',
+    newDay: ['Clocked out. Clocked in. Same queue.', 'Another day survived. Log it.', 'New day. New MedDRA version? Please no.'],
+    breakTime: ['Break time. Five minutes. Maybe six.', 'Sofa: engaged.'],
+    managerIncoming: 'PAT THE MANAGER IS COMING!',
+    directorIncoming: 'THE DIRECTOR IS COMING!!',
+    danger: {
+      caffeine: ['Need... bean juice...', 'Is... this decaf?'],
+      energy: ['Running on fumes.', "I'll just rest my eyes for a sec..."],
+      sanity: ['The narratives are narrating me.', 'I see MedDRA codes when I close my eyes.'],
+      compliance: ['I sense an inspection finding.', 'Where did I put that SOP?'],
+    },
+  },
+
+  deaths: {
+    caffeine:   { title: 'LOST TO FOLLOW-UP',        text: 'Casey was last seen walking to the kitchen. The machine was empty.', color: '#ffb000', glow: 'yellow' },
+    energy:     { title: "CODED AS 'FATIGUE' (PT)",   text: 'SOC: General disorders. Outcome: long nap. Causality: this job.',   color: '#39ff88', glow: 'cyan' },
+    sanity:     { title: 'BURNED OUT',                text: 'Casey has been reclassified as a serious adverse event.',            color: '#ff5ae0', glow: 'pink' },
+    compliance: { title: 'INSPECTION FINDING: YOU',   text: 'Critical finding. CAPA due in 30 days.',                             color: '#29d9ff', glow: 'cyan' },
+    overload:   { title: 'SUSAR: SERIOUS UNEXPECTED SUSPECTED ADVERSE REACTION', text: 'Suspect product: coffee. Dechallenge: refused.', color: '#ff3b3b', glow: 'red' },
+  },
+};
+
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const STAT_KEYS = Object.keys(CONFIG.stats);
+const Store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked: ignore */ } },
+};
+let SIM = false; // true while the balance simulator runs (no sound/UI side effects)
+
+/* =====================================================================
+   MAP: 40x26 tile office, built from rooms + furniture placements
+   ===================================================================== */
+const T = 32;                 // tile size in world pixels
+const MAP_W = 40, MAP_H = 26;
+const FEET = 8;               // feet sit this far below the tile center
+const GRID = [];              // GRID[y][x] = '#' wall, '.' floor, or a furniture letter
+const FLOOR = [];             // FLOOR[y][x] = zone key used for floor styling
+const OBJECTS = [];           // furniture objects { type, x, y, w, h }
+const ZONES = {
+  director: { x: 1,  y: 1,  w: 10, h: 6,  label: 'DIRECTOR' },
+  manager:  { x: 12, y: 1,  w: 11, h: 6,  label: 'MANAGER' },
+  meeting:  { x: 24, y: 1,  w: 15, h: 6,  label: 'MEETING ROOM' },
+  open:     { x: 1,  y: 8,  w: 38, h: 10, label: 'PV OPEN PLAN' },
+  kitchen:  { x: 1,  y: 19, w: 14, h: 6,  label: 'KITCHEN' },
+  break:    { x: 16, y: 19, w: 23, h: 6,  label: 'BREAK AREA' },
+};
+const DOORS = [[8, 7, 2, 1], [17, 7, 2, 1], [30, 7, 2, 1], [6, 18, 2, 1], [22, 18, 3, 1]];
+// Furniture letters: D desk, M my desk, C coffee machine, K counter, F fridge, k kitchen table, T meeting table,
+// W whiteboard, H shelf, X manager desk, Z director desk, P printer, s sofa, v TV, g ping pong, a arcade, p plant, w water cooler
+const INTERACT_TYPES = new Set(['M', 'C', 'P', 'F', 'a', 'v', 'W', 'T', 'X', 'Z', 's', 'w', 'k', 'H', 'D', 'p', 'g', 'K']);
+
+function buildMap() {
+  for (let y = 0; y < MAP_H; y++) { GRID[y] = Array(MAP_W).fill('#'); FLOOR[y] = Array(MAP_W).fill('open'); }
+  const carve = (x, y, w, h, key) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { GRID[j][i] = '.'; FLOOR[j][i] = key; } };
+  for (const [key, z] of Object.entries(ZONES)) carve(z.x, z.y, z.w, z.h, key);
+  for (const d of DOORS) carve(d[0], d[1], d[2], d[3], 'door');
+  const place = (type, x, y, w = 1, h = 1) => {
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) GRID[j][i] = type;
+    OBJECTS.push({ type, x, y, w, h, id: OBJECTS.length });
+  };
+  // director
+  place('H', 4, 1, 4, 1); place('p', 1, 1); place('p', 10, 1); place('Z', 3, 3, 4, 1); place('p', 1, 6);
+  // manager
+  place('H', 14, 1, 4, 1); place('p', 22, 1); place('X', 15, 3, 4, 1); place('p', 12, 6);
+  // meeting room
+  place('W', 27, 1, 9, 1); place('T', 27, 3, 9, 2); place('p', 24, 6); place('p', 38, 6);
+  // open plan desk clusters (2 tiles per desk, back to back)
+  for (const cx of [3, 11, 19, 27]) for (const r of [10, 14]) for (const dy of [0, 1]) for (const dx of [0, 2]) {
+    const mine = cx === 19 && r === 10 && dy === 0 && dx === 2;
+    place(mine ? 'M' : 'D', cx + dx, r + dy, 2, 1);
+  }
+  place('P', 37, 10, 1, 2); place('w', 1, 8); place('p', 38, 8); place('p', 1, 13); place('p', 38, 13);
+  place('C', 33, 8, 2, 1);   // open-plan coffee corner, close to the desks
+  // kitchen
+  place('K', 1, 24, 7, 1); place('C', 8, 24, 2, 1); place('K', 10, 24, 3, 1); place('F', 13, 23, 2, 2); place('k', 5, 20, 3, 2);
+  // break area
+  place('v', 19, 19, 3, 1); place('s', 18, 22, 5, 1); place('g', 28, 21, 5, 2); place('a', 37, 19, 1, 2); place('p', 16, 24); place('p', 38, 24);
+  // desks remember which side the chair is on
+  for (const o of OBJECTS) if (o.type === 'D' || o.type === 'M') o.sitterAbove = walkable(o.x, o.y - 1);
+  for (const o of OBJECTS) if (o.type === 'C') o.label = o.y < 18 ? 'MINI' : 'JAVA';
+}
+function walkable(tx, ty) { return tx >= 0 && ty >= 0 && tx < MAP_W && ty < MAP_H && GRID[ty][tx] === '.'; }
+function objAt(tx, ty) { return OBJECTS.find((o) => tx >= o.x && tx < o.x + o.w && ty >= o.y && ty < o.y + o.h) || null; }
+function zoneOfTile(tx, ty) {
+  for (const [key, z] of Object.entries(ZONES)) if (tx >= z.x && tx < z.x + z.w && ty >= z.y && ty < z.y + z.h) return key;
+  return null;
+}
+buildMap();
+const MY_DESK = OBJECTS.find((o) => o.type === 'M');
+const deskAt = (x, y) => OBJECTS.find((o) => o.x === x && o.y === y);
+const seatTile = (o) => ({ tx: o.x + 1, ty: o.sitterAbove ? o.y - 1 : o.y + 1 });
+const HOMES = {
+  casey: { tx: 22, ty: 9, dir: 'down' },
+  nora: { ...seatTile(deskAt(3, 10)), dir: 'down' },
+  max: { ...seatTile(deskAt(11, 15)), dir: 'up' },
+  lin: { ...seatTile(deskAt(29, 10)), dir: 'down' },
+  quinn: { ...seatTile(deskAt(19, 14)), dir: 'down' },
+  manager: { tx: 16, ty: 2, dir: 'down' },
+  director: { tx: 5, ty: 2, dir: 'down' },
+};
+const POIS = {
+  colleague: [[6, 22], [3, 22], [9, 23], [20, 21], [25, 20], [30, 20], [34, 23], [36, 11], [8, 12], [16, 12], [24, 12], [33, 15], [2, 9]],
+  manager: [[8, 22], [36, 12], [16, 12], [24, 16], [9, 9], [28, 5], [33, 13]],
+  director: [[8, 5], [3, 5], [9, 2]],
+};
+
+/* =====================================================================
+   PATHFINDING (BFS on the tile grid)
+   ===================================================================== */
+const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+const DIR_LIST = Object.entries(DIRS);
+/** Shortest walkable path from (sx,sy) to any tile where isGoal(x,y) is true. Returns [{tx,ty}] excluding start, or null. */
+function bfs(sx, sy, isGoal, avoid = null) {
+  const N = MAP_W * MAP_H, prev = new Int32Array(N).fill(-1), start = sx + sy * MAP_W;
+  const q = [start]; prev[start] = start;
+  for (let h = 0; h < q.length; h++) {
+    const cur = q[h], cx = cur % MAP_W, cy = (cur / MAP_W) | 0;
+    if (cur !== start && isGoal(cx, cy)) {
+      const path = [];
+      for (let c = cur; c !== start; c = prev[c]) path.push({ tx: c % MAP_W, ty: (c / MAP_W) | 0 });
+      return path.reverse();
+    }
+    for (const [, [dx, dy]] of DIR_LIST) {
+      const nx = cx + dx, ny = cy + dy, ni = nx + ny * MAP_W;
+      if (!walkable(nx, ny) || prev[ni] !== -1) continue;
+      if (avoid && avoid(nx, ny) && !isGoal(nx, ny)) continue;
+      prev[ni] = cur; q.push(ni);
+    }
+  }
+  return isGoal(sx, sy) ? [] : null;
+}
+const neighborsOfRect = (x, y, w, h) => {
+  const out = [];
+  for (let i = x; i < x + w; i++) { out.push([i, y - 1], [i, y + h]); }
+  for (let j = y; j < y + h; j++) { out.push([x - 1, j], [x + w, j]); }
+  return out;
+};
+
+/* =====================================================================
+   ENTITIES + GRID MOVEMENT (Pokemon style: one tile per step)
+   ===================================================================== */
+function makeEntity(id, def) {
+  const h = HOMES[id];
+  return { id, def, name: def.name, role: def.role || 'player', look: def.look,
+    tx: h.tx, ty: h.ty, fx: h.tx, fy: h.ty, x: 0, y: 0, dir: h.dir, home: h,
+    moving: false, moveT: 0, moveDur: 0.2, foot: 0, path: [], blockT: 0, onArrive: null,
+    state: 'idle', waitT: rand(1, 4), say: null, chatReadyAt: 0, seed: Math.random() * 10, exclaimUntil: 0 };
+}
+const PLAYER = makeEntity('casey', CONTENT.people.casey);
+Object.assign(PLAYER, { turnT: 0, wasWalking: false, lockedUntil: 0, lockReason: '', lockStart: 0, bumpT: 0 });
+const NPCS = ['nora', 'max', 'lin', 'quinn', 'manager', 'director'].map((id) => makeEntity(id, CONTENT.people[id]));
+const MANAGER = NPCS.find((n) => n.role === 'manager');
+const DIRECTOR = NPCS.find((n) => n.role === 'director');
+const ALL = [PLAYER, ...NPCS];
+
+function occupied(tx, ty, except) { return ALL.some((e) => e !== except && e.tx === tx && e.ty === ty); }
+function entityAt(tx, ty, except) { return ALL.find((e) => e !== except && e.tx === tx && e.ty === ty) || null; }
+function canEnter(e, tx, ty) { return walkable(tx, ty) && !occupied(tx, ty, e); }
+function facingTile(e) { const d = DIRS[e.dir]; return { tx: e.tx + d[0], ty: e.ty + d[1] }; }
+function dirTo(e, tx, ty) {
+  const dx = tx - e.tx, dy = ty - e.ty;
+  return Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+}
+function placeEntity(e, tx, ty, dir) { e.tx = e.fx = tx; e.ty = e.fy = ty; e.moving = false; e.path = []; if (dir) e.dir = dir; syncPixel(e); }
+function syncPixel(e) {
+  const k = e.moving ? Math.min(1, e.moveT / e.moveDur) : 1;
+  e.x = (e.fx + (e.tx - e.fx) * k + 0.5) * T;
+  e.y = (e.fy + (e.ty - e.fy) * k + 0.5) * T + FEET;
+}
+/** Try to step one tile in a direction. Returns true if the step started. */
+function startStep(e, dir, dur) {
+  e.dir = dir;
+  const [dx, dy] = DIRS[dir], nx = e.tx + dx, ny = e.ty + dy;
+  if (!canEnter(e, nx, ny)) return false;
+  e.fx = e.tx; e.fy = e.ty; e.tx = nx; e.ty = ny;
+  e.moving = true; e.moveT = 0; e.moveDur = dur; e.foot ^= 1;
+  return true;
+}
+function updateStep(e, dt) {
+  if (e.moving) { e.moveT += dt; if (e.moveT >= e.moveDur) { e.moving = false; e.fx = e.tx; e.fy = e.ty; } }
+  syncPixel(e);
+}
+/** Follow e.path one tile at a time; waits (and eventually re-plans) when someone is in the way. */
+function followPath(e, dt, dur) {
+  if (e.moving || !e.path.length) return;
+  const next = e.path[0];
+  if (Math.abs(next.tx - e.tx) + Math.abs(next.ty - e.ty) !== 1) { e.path = []; return; }
+  if (startStep(e, dirTo(e, next.tx, next.ty), dur)) { e.path.shift(); e.blockT = 0; return; }
+  e.blockT += dt;
+  if (e.blockT > 0.8) { // blocked: re-plan around people
+    e.blockT = 0;
+    const goal = e.path[e.path.length - 1];
+    const p = bfs(e.tx, e.ty, (x, y) => x === goal.tx && y === goal.ty, (x, y) => occupied(x, y, e));
+    e.path = p || [];
+  }
+}
+function pathTo(e, tx, ty) {
+  const p = bfs(e.tx, e.ty, (x, y) => x === tx && y === ty);
+  e.path = p || [];
+  return !!p;
+}
+/** Walk next to a rectangle (object/person tile), then face it. */
+function pathNextTo(e, x, y, w = 1, h = 1) {
+  const goals = new Set(neighborsOfRect(x, y, w, h).map(([a, b]) => a + ',' + b));
+  const p = bfs(e.tx, e.ty, (a, b) => goals.has(a + ',' + b), (a, b) => occupied(a, b, e));
+  e.path = p || [];
+  return !!p;
+}
+function adjacentTo(e, x, y, w = 1, h = 1) {
+  return neighborsOfRect(x, y, w, h).some(([a, b]) => a === e.tx && b === e.ty);
+}
+function faceRect(e, x, y, w = 1, h = 1) {
+  const cx = clamp(e.tx, x, x + w - 1), cy = clamp(e.ty, y, y + h - 1);
+  e.dir = dirTo(e, cx, cy);
+}
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+const S = {
+  mode: 'title',          // title | playing | dialog | scene | minigame | paused | gameover
+  mgReady: {},             // mini-game id -> time it can be played again
+  time: 0, day: 1, stats: {},
+  cases: [], nextCaseAt: 0, caseSeq: 0, activeId: null, casesVersion: 0, onTime: 0, lateCount: 0, submitted: 0,
+  coffeeReady: {}, brewing: null, printerReadyAt: 0, printerJamUntil: 0, propReady: {}, dbDownUntil: 0,
+  overloadT: 0, breakT: 0, breakScolded: false, working: false, target: null,
+  event: null, nextEventAt: 0, lastEventId: null, meeting: null,
+  scoldQueue: [], approaching: null, scoldReadyAt: 0, directorT: 0, lastLowCompAt: -999,
+  dialog: null, scene: null,
+  deathCause: null, score: 0, newHi: false, gameOverAt: 0,
+  hi: (() => { const h = Store.get(CONFIG.storageKeys.hi, null); return h && typeof h.score === 'number' ? h : { score: 0, days: 0, cases: 0 }; })(),
+};
+// Visual-only state
+const V = { t: 0, particles: [], pops: [], shakeT: 0, shakeMag: 0, typeT: 0, workSayT: 0, dangerTickT: 0, lastSayAt: -99, evSecond: 99, happyUntil: 0, clickMark: null };
+const input = { keys: [], tap: null, actionPressed: false, actionHeld: false, touchHeld: false, mouseWork: false, simHold: false, joy: null };
+
+function resetGame() {
+  S.time = 0; S.day = 1;
+  for (const k of STAT_KEYS) S.stats[k] = CONFIG.stats[k].start;
+  Object.assign(S, { cases: [], nextCaseAt: CONFIG.cases.firstAt, caseSeq: 1040, activeId: null, onTime: 0, lateCount: 0, submitted: 0,
+    coffeeReady: {}, brewing: null, printerReadyAt: 0, printerJamUntil: 0, propReady: {}, dbDownUntil: 0,
+    overloadT: 0, breakT: 0, breakScolded: false, working: false, target: null,
+    event: null, nextEventAt: rand(CONFIG.events.firstMin, CONFIG.events.firstMax), lastEventId: null, meeting: null,
+    scoldQueue: [], approaching: null, scoldReadyAt: 0, directorT: CONFIG.director.checkEvery, lastLowCompAt: -999,
+    dialog: null, scene: null, deathCause: null, score: 0, newHi: false, mgReady: {} });
+  S.casesVersion++;
+  for (const e of ALL) {
+    placeEntity(e, e.home.tx, e.home.ty, e.home.dir);
+    e.state = 'idle'; e.waitT = rand(1, 5); e.say = null; e.chatReadyAt = 0; e.exclaimUntil = 0; e.onArrive = null;
+  }
+  Object.assign(PLAYER, { turnT: 0, wasWalking: false, lockedUntil: 0, lockReason: '' });
+  V.particles.length = 0; V.pops.length = 0;
+}
+
+/* =====================================================================
+   GAME FLOW
+   ===================================================================== */
+function startGame() {
+  Sound.init();
+  resetGame();
+  S.mode = 'playing';
+  UI.hideOverlay(); UI.hideEvent(); UI.hideDialog();
+  sfx.start(); Music.start();
+  say(pick(CONTENT.lines.start));
+}
+function pauseGame() {
+  if (!['playing', 'dialog', 'scene', 'minigame'].includes(S.mode)) return;
+  S.pausedFrom = S.mode; S.mode = 'paused';
+  Music.stop(); sfx.pause(); UI.showPause();
+}
+function resumeGame() {
+  if (S.mode !== 'paused') return;
+  S.mode = S.pausedFrom || 'playing';
+  UI.hideOverlay(); Music.start(); sfx.pause();
+}
+function canRestart() { return performance.now() - S.gameOverAt > CONFIG.fx.restartLockMs; }
+function computeScore() { return Math.floor(S.time / CONFIG.secondsPerDay * CONFIG.score.perDay) + S.onTime * CONFIG.score.perCase; }
+
+function gameOver(cause) {
+  if (S.mode === 'gameover') return;
+  S.mode = 'gameover'; S.deathCause = cause; S.score = computeScore();
+  S.event = null; S.dialog = null; S.scene = null;
+  if (SIM) return;
+  const days = S.time / CONFIG.secondsPerDay;
+  if (S.score > S.hi.score) { S.hi = { score: S.score, days: +days.toFixed(2), cases: S.onTime }; S.newHi = true; Store.set(CONFIG.storageKeys.hi, S.hi); }
+  S.gameOverAt = performance.now();
+  UI.hideEvent(); UI.hideDialog();
+  Music.stop(); sfx.gameover();
+  FX.shake('l'); FX.flash('#ff3b3b');
+  UI.showGameOver();
+}
+function checkDeath() {
+  if (S.mode === 'gameover' || S.mode === 'title') return;
+  if (S.overloadT >= CONFIG.jitter.overloadSeconds) return gameOver('overload');
+  for (const k of STAT_KEYS) if (S.stats[k] <= 0) return gameOver(k);
+}
+
+/* Main simulation step (world is frozen while a dialogue or scene is open) */
+function update(dt) {
+  S.time += dt;
+  const day = Math.floor(S.time / CONFIG.secondsPerDay) + 1;
+  if (day > S.day) { S.day = day; onNewDay(); }
+  updateStats(dt);
+  updateTimers();          // finish brewing/meetings before new interactions
+  updatePlayer(dt);
+  handleInteraction(dt);
+  updateCases();
+  updateEvents(dt);
+  for (const n of NPCS) updateNPC(n, dt);
+  updateScolds(dt);
+  updateDirector(dt);
+  S.score = computeScore();
+  checkDeath();
+}
+function onNewDay() {
+  if (SIM) return;
+  pop(`DAY ${S.day}!`, '#ffd23f', 4);
+  sfx.day();
+  say(pick(CONTENT.lines.newDay));
+}
+
+/* =====================================================================
+   STATS + EFFECTS
+   ===================================================================== */
+function inRegenZone() { const c = S.stats.caffeine, z = CONFIG.energyRegen; return c >= z.caffeineMin && c <= z.caffeineMax; }
+function anyDanger() { return STAT_KEYS.some((k) => S.stats[k] < CONFIG.stats[k].danger); }
+function playerZone() { return zoneOfTile(PLAYER.tx, PLAYER.ty); }
+
+function updateStats(dt) {
+  const st = S.stats, C = CONFIG, m = 1 + (S.day - 1) * C.difficulty.drainPerDay;
+  for (const k of STAT_KEYS) st[k] -= C.stats[k].drain * m * dt;
+  if (inRegenZone()) st.energy += C.energyRegen.rate * dt;
+  if (st.caffeine > C.jitter.threshold) st.sanity -= C.jitter.sanityDrain * dt;
+  if (st.caffeine >= C.jitter.overloadAt) S.overloadT += dt;
+  else S.overloadT = Math.max(0, S.overloadT - dt * C.jitter.overloadRecover);
+  if (playerZone() === 'break' && !PLAYER.moving) {
+    st.sanity += C.breakArea.sanityPerSec * dt;
+    if (S.breakT === 0 && !SIM) say(pick(CONTENT.lines.breakTime));
+    S.breakT += dt;
+    if (S.breakT > C.breakArea.maxSeconds && !S.breakScolded) { S.breakScolded = true; queueScold('manager', 'break'); }
+  } else if (playerZone() !== 'break') { S.breakT = 0; S.breakScolded = false; }
+  for (const k of STAT_KEYS) st[k] = clamp(st[k], 0, 100);
+}
+
+/** Apply a bag of effects (stat deltas + special keys). Returns the net stat change. */
+function applyEffects(fx) {
+  let net = 0;
+  for (const [k, v] of Object.entries(fx || {})) {
+    if (!v) continue;
+    if (k in S.stats) {
+      S.stats[k] = clamp(S.stats[k] + v, 0, 100);
+      pop(`${v > 0 ? '+' : ''}${v} ${CONFIG.stats[k].short}`, v > 0 ? CONFIG.stats[k].color : '#ff4d4d');
+      UI.bump(k, v);
+      net += v;
+    } else if (k === 'cases') { for (let i = 0; i < v; i++) spawnCase({}); }
+    else if (k === 'serious') { for (let i = 0; i < v; i++) spawnCase({ serious: true }); }
+    else if (k === 'favor') { for (let i = 0; i < v; i++) spawnCase({ favor: true }); }
+    else if (k === 'removeCase') removeCases(v);
+    else if (k === 'dbDown') S.dbDownUntil = Math.max(S.dbDownUntil, S.time + v);
+  }
+  return net;
+}
+
+/* =====================================================================
+   PLAYER CONTROL (grid movement)
+   ===================================================================== */
+function heldDir() {
+  if (input.joy) return input.joy;
+  return input.keys.length ? input.keys[input.keys.length - 1] : null;
+}
+function playerStepTime() {
+  const C = CONFIG.player;
+  let t = C.stepTime;
+  if (S.stats.energy < CONFIG.moods.exhaustedBelow) t *= C.exhaustedStepMult;
+  if (S.stats.caffeine > CONFIG.jitter.threshold) t *= C.jitteryStepMult;
+  return t;
+}
+function updatePlayer(dt) {
+  const P = PLAYER;
+  updateStep(P, dt);
+  if (P.lockedUntil > S.time || P.moving) return;
+  const d = heldDir();
+  if (d) {
+    input.tap = null; P.path = []; P.onArrive = null;
+    if (P.turnT > 0) { P.turnT -= dt; return; }
+    if (d !== P.dir && !P.wasWalking) { P.dir = d; P.turnT = CONFIG.player.turnDelay; return; }
+    if (startStep(P, d, playerStepTime())) { P.wasWalking = true; updateStep(P, 0); }
+    else { P.wasWalking = false; if (V.t > P.bumpT) { P.bumpT = V.t + 0.3; sfx.bump(); } }
+    return;
+  }
+  P.wasWalking = false; P.turnT = 0;
+  if (input.tap) { P.dir = input.tap; input.tap = null; P.path = []; P.onArrive = null; return; }   // a very quick tap still turns
+  if (P.path.length) { followPath(P, dt, playerStepTime()); if (!P.moving && P.blockT === 0 && !P.path.length) P.path = []; }
+  else if (P.onArrive) { const f = P.onArrive; P.onArrive = null; f(); }
+}
+
+/* What is on the tile Casey is facing? */
+function currentTarget() {
+  if (PLAYER.moving) return null;
+  const f = facingTile(PLAYER);
+  const n = NPCS.find((e) => e.tx === f.tx && e.ty === f.ty);
+  if (n) return { kind: 'npc', npc: n };
+  const o = objAt(f.tx, f.ty);
+  if (o && INTERACT_TYPES.has(o.type)) return { kind: 'obj', obj: o };
+  return null;
+}
+function workHeld() { return input.actionHeld || input.touchHeld || input.mouseWork || input.simHold; }
+
+function handleInteraction(dt) {
+  const target = currentTarget();
+  S.target = target;
+  if (input.actionPressed) {
+    input.actionPressed = false;
+    if (target && PLAYER.lockedUntil <= S.time) interact(target);
+  }
+  S.working = false;
+  if (target && target.kind === 'obj' && target.obj.type === 'M' && workHeld() && PLAYER.lockedUntil <= S.time) workTick(dt);
+}
+
+function interact(target) {
+  if (target.kind === 'npc') return talkTo(target.npc);
+  const o = target.obj;
+  switch (o.type) {
+    case 'M': if (!S.cases.length) say(pick(CONTENT.lines.noCases)); return;
+    case 'C': return useCoffee(o);
+    case 'P': return usePrinter();
+    case 'g': {
+      if (!minigameReady('pong')) { say('The paddles need a rest. Try again in a bit.'); return; }
+      const mates = NPCS.filter((n) => n.role === 'colleague' && n.state !== 'talk');
+      return startMinigame('pong', pick(mates.length ? mates : NPCS.filter((n) => n.role === 'colleague')));
+    }
+    case 'T': case 'W':
+      if (S.event && S.event.def.type === 'meeting') return startMeeting();
+      return useProp(o);
+    default: return useProp(o);
+  }
+}
+
+function useCoffee(o) {
+  if (S.brewing) return;
+  if (S.time < (S.coffeeReady[o.id] || 0)) { say(pick(CONTENT.lines.coffeeWait)); sfx.denied(); return; }
+  PLAYER.lockedUntil = S.time + CONFIG.coffee.brewSeconds; PLAYER.lockReason = 'coffee'; PLAYER.lockStart = S.time;
+  S.brewing = o;
+  sfx.brew();
+}
+function finishCoffee() {
+  const machine = S.brewing;
+  S.brewing = null;
+  const C = CONFIG;
+  const fx = { caffeine: C.coffee.caffeine, energy: C.coffee.energy };
+  let line = pick(CONTENT.lines.coffee);
+  if (S.stats.caffeine + fx.caffeine > C.jitter.threshold) { fx.sanity = C.jitter.coffeeSanityHit; line = pick(CONTENT.lines.coffeeJittery); }
+  applyEffects(fx);
+  S.coffeeReady[machine.id] = S.time + C.coffee.cooldown;
+  say(line); sfx.coffee(); V.happyUntil = V.t + 1.2;
+}
+function usePrinter() {
+  const C = CONFIG.printer, Pc = CONTENT.printer;
+  if (S.time < S.printerReadyAt) { say(pick(Pc.busy)); return; }
+  S.printerReadyAt = S.time + C.cooldown;
+  if (Math.random() < C.jamChance) {
+    S.printerJamUntil = S.time + 4;
+    applyEffects(Pc.jam.effects); say(pick(Pc.jam.lines)); sfx.jam(); FX.shake('s');
+    for (let i = 0; i < 6; i++) emit('paper', 37.5 * T, 10.5 * T, { vx: rand(-60, 10), vy: rand(-80, -30), g: 160, life: 1.2 });
+  } else {
+    applyEffects(Pc.ok.effects); say(pick(Pc.ok.lines)); sfx.action();
+  }
+}
+function useProp(o) {
+  const p = CONTENT.props[o.type];
+  if (!p) return;
+  say(pick(p.lines));
+  if (p.effects && S.time >= (S.propReady[o.type] || 0)) { applyEffects(p.effects); S.propReady[o.type] = S.time + CONFIG.props.cooldown; }
+  sfx.blip();
+}
+function updateTimers() {
+  if (S.brewing && S.time >= PLAYER.lockedUntil) finishCoffee();
+  if (S.meeting && S.time >= S.meeting.until) finishMeeting();
+}
+
+/* =====================================================================
+   CASES (the core loop)
+   ===================================================================== */
+const STEPS = CONFIG.work.steps;
+function spawnCase(opts = {}) {
+  const C = CONFIG.cases;
+  const serious = opts.serious ?? Math.random() < C.seriousChance;
+  const total = serious ? C.seriousDeadline : C.normalDeadline;
+  S.caseSeq++;
+  const c = { id: S.caseSeq, code: `AE-${S.caseSeq}`, serious, favor: !!opts.favor,
+    title: pick(serious ? CONTENT.cases.serious : CONTENT.cases.normal),
+    source: opts.favor ? 'FAVOR' : pick(CONTENT.cases.sources),
+    step: 0, progress: 0, deadline: S.time + total, total, late: false, bounced: false };
+  S.cases.push(c); S.casesVersion++;
+  if (!SIM) { pop(serious ? 'SERIOUS CASE!' : 'NEW CASE', serious ? '#ff3b3b' : '#29e6ff', 3); sfx.newCase(); }
+  return c;
+}
+function removeCases(n) {
+  for (let i = 0; i < n; i++) {
+    const cands = S.cases.filter((c) => c !== activeCase() && c.step === 0);
+    const c = cands[cands.length - 1] || null;
+    if (!c) return;
+    S.cases.splice(S.cases.indexOf(c), 1); S.casesVersion++;
+  }
+}
+/** The case being worked: the one the player clicked, else earliest on-time deadline, else oldest late one. */
+function activeCase() {
+  if (S.activeId != null) { const c = S.cases.find((x) => x.id === S.activeId); if (c) return c; S.activeId = null; }
+  let best = null;
+  for (const c of S.cases) {
+    if (!best) { best = c; continue; }
+    if (best.late && !c.late) best = c;
+    else if (best.late === c.late && c.deadline < best.deadline) best = c;
+  }
+  return best;
+}
+function workTick(dt) {
+  const c = activeCase();
+  if (!c) return;
+  PLAYER.dir = dirTo(PLAYER, clamp(PLAYER.tx, MY_DESK.x, MY_DESK.x + 1), MY_DESK.y);
+  if (S.time < S.dbDownUntil) return;
+  const C = CONFIG.work;
+  S.working = true;
+  let speed = 1;
+  if (S.stats.energy < CONFIG.moods.exhaustedBelow) speed = C.exhaustedSpeed;
+  if (S.stats.caffeine > CONFIG.jitter.threshold) speed *= C.jitterySpeed;
+  c.progress += dt * speed;
+  S.stats.energy -= C.energyPerSec * dt;
+  S.stats.sanity -= C.sanityPerSec * dt;
+  if (!SIM) {
+    V.typeT -= dt; if (V.typeT <= 0) { sfx.type(); V.typeT = 0.11; }
+    V.workSayT -= dt; if (V.workSayT <= 0) { say(pick(CONTENT.lines.work)); V.workSayT = 6; }
+  }
+  if (c.progress >= STEPS[c.step].seconds) completeStep(c);
+}
+function completeStep(c) {
+  const step = STEPS[c.step];
+  if (step.id === 'qc' && !c.bounced && Math.random() < CONFIG.work.qcBounceChance) {
+    c.bounced = true; c.step = STEPS.findIndex((s) => s.id === 'narrative'); c.progress = 0; S.casesVersion++;
+    if (!SIM) { pop('QC BOUNCE!', '#ff3b3b', 3); say(pick(CONTENT.lines.qcBounce)); sfx.bad(); }
+    queueScold('manager', 'qc');
+    return;
+  }
+  c.step++; c.progress = 0; S.casesVersion++;
+  if (c.step >= STEPS.length) return submitCase(c);
+  if (!SIM) { pop(`${step.label} DONE`, '#39ff88'); sfx.stepDone(); say(pick(CONTENT.lines.steps[step.id])); V.workSayT = 4; }
+}
+function submitCase(c) {
+  S.cases.splice(S.cases.indexOf(c), 1); S.casesVersion++; S.submitted++;
+  if (S.activeId === c.id) S.activeId = null;
+  if (!c.late) {
+    S.onTime++;
+    applyEffects(CONFIG.cases.onTime);
+    if (!SIM) { pop(`+${CONFIG.score.perCase} ON TIME!`, '#39ff88', 3); sfx.submit(); say(pick(CONTENT.lines.steps.submit)); V.happyUntil = V.t + 1.5;
+      for (let i = 0; i < 10; i++) emit('star', PLAYER.x + rand(-20, 20), PLAYER.y - 40, { vx: rand(-60, 60), vy: rand(-90, -30), life: 0.8 }); }
+  } else {
+    applyEffects(CONFIG.cases.lateSubmit);
+    if (!SIM) { pop('SUBMITTED (LATE)', '#ff9d2e', 3); sfx.stepDone(); }
+  }
+}
+function updateCases() {
+  const C = CONFIG.cases;
+  if (S.time >= S.nextCaseAt) {
+    spawnCase({});
+    const f = 1 + (S.day - 1) * CONFIG.difficulty.arrivalPerDay;
+    S.nextCaseAt = S.time + rand(C.arrivalMin, C.arrivalMax) / f;
+  }
+  for (const c of S.cases) {
+    if (c.late || S.time <= c.deadline) continue;
+    c.late = true; S.lateCount++; S.casesVersion++;
+    applyEffects(C.late);
+    if (!SIM) { pop('CASE LATE!', '#ff3b3b', 3); say(pick(CONTENT.lines.late)); sfx.bad(); FX.shake('s'); FX.flash('#ff3b3b'); }
+    queueScold('manager', 'late');
+  }
+}
+
+/* =====================================================================
+   NPCs: wandering, chatting
+   ===================================================================== */
+function npcStep(n) {
+  const C = CONFIG.npc;
+  return n.role === 'manager' ? C.managerStep : n.role === 'director' ? C.directorStep : C.colleagueStep;
+}
+const atHome = (n) => n.tx === n.home.tx && n.ty === n.home.ty;
+function npcWander(n) {
+  let target;
+  if (!atHome(n)) target = [n.home.tx, n.home.ty];
+  else target = pick(POIS[n.role === 'colleague' ? 'colleague' : n.role]);
+  pathTo(n, target[0], target[1]);
+  n.state = 'walk';
+}
+function updateNPC(n, dt) {
+  updateStep(n, dt);
+  if (n.state === 'talk' || n.state === 'scene') return;
+  if (n.state === 'approach') return;      // handled by updateScolds
+  if (n.path.length) { followPath(n, dt, npcStep(n)); return; }
+  if (n.moving) return;
+  if (n.state === 'walk' || n.state === 'leave') {
+    n.state = 'idle';
+    n.waitT = atHome(n) ? rand(CONFIG.npc.deskMin, CONFIG.npc.deskMax) : rand(CONFIG.npc.idleMin, CONFIG.npc.idleMax);
+    if (atHome(n)) n.dir = n.home.dir;
+  }
+  n.waitT -= dt;
+  if (n.waitT <= 0) npcWander(n);
+}
+function npcSay(n, text, dur = 3) { if (!SIM) n.say = { text, until: V.t + dur }; }
+function say(text, dur = 2.8) { if (SIM) return; PLAYER.say = { text, until: V.t + dur }; V.lastSayAt = V.t; }
+
+function talkTo(n) {
+  if (S.approaching === n && n.state === 'approach') return openScold(n);
+  if (n.state === 'leave') return;
+  if (S.time < n.chatReadyAt) { npcSay(n, pick(CONTENT.busy)); sfx.blip(); return; }
+  const def = n.def;
+  const topic = def.role === 'colleague' && def.favor && Math.random() < CONFIG.npc.favorChance ? CONTENT.favor : pick(def.talks);
+  n.chatReadyAt = S.time + CONFIG.npc.chatCooldown;
+  n.path = []; n.state = 'talk';
+  n.dir = dirTo(n, PLAYER.tx, PLAYER.ty); PLAYER.dir = dirTo(PLAYER, n.tx, n.ty);
+  // colleagues offer their mini-game as an extra reply
+  const mg = minigameOf(n);
+  const choices = mg && minigameReady(mg) && !SIM ? [...topic.choices, { text: '🎮 ' + CONTENT.minigames[mg].offer, minigame: mg }] : topic.choices;
+  S.mode = 'dialog'; S.dialog = { npc: n, topic, choices };
+  if (!SIM) { UI.showDialog('talk', n, topic.line, choices); sfx.blip(); }
+}
+function chooseDialog(i) {
+  const d = S.dialog;
+  if (!d || S.mode !== 'dialog') return;
+  const ch = d.choices[i];
+  if (!ch) return;
+  if (ch.minigame) { S.dialog = null; UI.hideDialog(); return startMinigame(ch.minigame, d.npc); }
+  applyEffects(ch.effects);
+  if (ch.reply) npcSay(d.npc, ch.reply);
+  d.npc.state = 'idle'; d.npc.waitT = 2.5;
+  S.dialog = null; S.mode = 'playing';
+  if (!SIM) { UI.hideDialog(); sfx.choose(); }
+  checkDeath();
+}
+
+/* =====================================================================
+   SCOLDINGS (Manager) + DIRECTOR scenes
+   ===================================================================== */
+function queueScold(who, reason) {
+  if (S.scoldQueue.length >= CONFIG.scold.maxQueue) return;
+  if (S.scoldQueue.some((q) => q.who === who && q.reason === reason)) return;
+  if (S.approaching && S.approaching.reason === reason && (S.approaching.role === who)) return;
+  S.scoldQueue.push({ who, reason });
+}
+function updateScolds(dt) {
+  if (!S.approaching && S.scoldQueue.length && S.time >= S.scoldReadyAt && !S.dialog) {
+    const q = S.scoldQueue.shift();
+    const n = q.who === 'director' ? DIRECTOR : MANAGER;
+    n.state = 'approach'; n.reason = q.reason; n.approachT = 0; n.path = [];
+    n.exclaimUntil = V.t + CONFIG.scold.exclaimSeconds; n.pauseUntil = S.time + CONFIG.scold.exclaimSeconds;
+    S.approaching = n;
+    if (!SIM) {
+      const big = n.role === 'director';
+      pop(big ? CONTENT.lines.directorIncoming : CONTENT.lines.managerIncoming, big ? '#ffd23f' : '#ff3b3b', 3);
+      big ? (sfx.directorIncoming(), FX.shake('l')) : sfx.exclaim();
+    }
+  }
+  const n = S.approaching;
+  if (!n || n.state !== 'approach') return;
+  n.approachT += dt;
+  if (S.time < n.pauseUntil) return;              // the Pokemon-trainer "!" pause
+  const P = PLAYER;
+  if (!n.moving && adjacentTo(n, P.tx, P.ty) && !P.moving) {
+    n.dir = dirTo(n, P.tx, P.ty);
+    return openScold(n);
+  }
+  if (n.approachT > CONFIG.scold.giveUpAfter && !n.moving) return openScold(n);
+  if (!n.moving) {
+    // re-plan every step because the player keeps moving
+    const goals = new Set(DIR_LIST.map(([, [dx, dy]]) => (P.tx + dx) + ',' + (P.ty + dy)));
+    const p = bfs(n.tx, n.ty, (a, b) => goals.has(a + ',' + b) && !occupied(a, b, n), (a, b) => occupied(a, b, n));
+    if (p && p.length) { if (startStep(n, dirTo(n, p[0].tx, p[0].ty), npcStep(n))) n.blockT = 0; }
+  }
+}
+function openScold(n) {
+  if (S.mode !== 'playing') return;
+  const kind = n.role;
+  let line, fx;
+  if (kind === 'manager') {
+    const r = n.def.scold[n.reason] || n.def.scold.late;
+    line = pick(r.lines); fx = r.effects;
+  } else {
+    const sc = n.reason === 'lowCompliance' ? n.def.lowCompliance : pick(n.def.scenes);
+    line = sc.line; fx = sc.effects;
+  }
+  line = line.replace('{compliance}', Math.round(S.stats.compliance));
+  n.path = []; n.state = 'scene';
+  n.dir = dirTo(n, PLAYER.tx, PLAYER.ty);
+  if (adjacentTo(n, PLAYER.tx, PLAYER.ty)) PLAYER.dir = dirTo(PLAYER, n.tx, n.ty);
+  S.mode = 'scene'; S.scene = { npc: n, kind, line, choices: n.def.replies };
+  applyEffects(fx);
+  if (!SIM) {
+    UI.showDialog(kind === 'director' ? 'director' : 'scold', n, line, n.def.replies);
+    if (kind === 'director') { sfx.director(); FX.shake('l'); FX.flash('#ffd23f'); }
+    else { sfx.scold(); FX.shake('s'); }
+  }
+}
+function chooseScene(i) {
+  const sc = S.scene;
+  if (!sc || S.mode !== 'scene') return;
+  const ch = sc.choices[i];
+  if (!ch) return;
+  applyEffects(ch.effects);
+  npcSay(sc.npc, ch.reply);
+  sc.npc.state = 'leave';
+  pathTo(sc.npc, sc.npc.home.tx, sc.npc.home.ty);
+  S.approaching = null; S.scene = null; S.mode = 'playing';
+  S.scoldReadyAt = S.time + CONFIG.scold.cooldown;
+  if (!SIM) { UI.hideDialog(); sfx.choose(); }
+  checkDeath();
+}
+function updateDirector(dt) {
+  const C = CONFIG.director;
+  S.directorT -= dt;
+  if (S.directorT <= 0) { S.directorT = C.checkEvery; if (Math.random() < C.chance) queueScold('director', 'random'); }
+  if (S.stats.compliance < C.lowCompliance && S.time - S.lastLowCompAt > C.lowComplianceCooldown) {
+    S.lastLowCompAt = S.time;
+    queueScold('director', 'lowCompliance');
+  }
+}
+
+/* =====================================================================
+   RANDOM EVENTS + MEETINGS
+   ===================================================================== */
+function updateEvents(dt) {
+  if (S.meeting) return;
+  if (S.event) {
+    S.event.timeLeft -= dt;
+    if (!SIM) {
+      const sec = Math.ceil(S.event.timeLeft);
+      if (sec < V.evSecond && sec <= 3 && sec > 0) sfx.tick();
+      V.evSecond = sec;
+    }
+    if (S.event.def.type === 'meeting' && playerZone() === 'meeting' && !PLAYER.moving) return startMeeting();
+    if (S.event.timeLeft <= 0) ignoreEvent();
+  } else if (S.time >= S.nextEventAt) spawnEvent();
+}
+function spawnEvent(id) {
+  const list = CONTENT.events;
+  let def = id ? list.find((e) => e.id === id) : null;
+  if (!def) def = pick(list.filter((e) => e.id !== S.lastEventId));
+  const C = CONFIG.events;
+  S.event = { def, timeLeft: def.type === 'meeting' ? C.meetingTravelTime : C.responseTime };
+  S.event.total = S.event.timeLeft;
+  S.lastEventId = def.id;
+  if (SIM) return;
+  V.evSecond = 99;
+  UI.showEvent(def);
+  sfx.alert(); FX.shake('s'); FX.flash(def.type === 'meeting' ? '#ff3fb4' : '#ff3b3b');
+}
+function resolveEvent(i) {
+  if (!S.event || S.mode !== 'playing' || S.event.def.type === 'meeting') return;
+  const ch = S.event.def.choices[i];
+  if (!ch) return;
+  const net = applyEffects(ch.effects);
+  if (!SIM) { UI.pressChoice(i); say(ch.say, 3.2); if (net < 0) sfx.meh(); else sfx.choose(); }
+  endEvent();
+  checkDeath();
+}
+function ignoreEvent() {
+  const def = S.event.def;
+  if (def.type === 'meeting') {
+    applyEffects(def.skip);
+    queueScold('manager', 'meeting');
+    if (!SIM) { say(def.skipSay, 3.2); sfx.bad(); FX.shake('s'); }
+  } else {
+    applyEffects(def.ignore);
+    if (!SIM) { say('IGNORED! ' + def.ignoreSay, 3.2); pop('IGNORED!', '#ff3b3b', 3); sfx.bad(); FX.shake('l'); FX.flash('#ff3b3b'); }
+  }
+  endEvent();
+}
+function endEvent() {
+  S.event = null;
+  S.nextEventAt = S.time + rand(CONFIG.events.minGap, CONFIG.events.maxGap);
+  if (!SIM) UI.hideEvent();
+}
+function startMeeting() {
+  const def = S.event.def;
+  S.meeting = { def, until: S.time + CONFIG.events.meetingSeconds };
+  PLAYER.lockedUntil = S.meeting.until; PLAYER.lockReason = 'meeting'; PLAYER.lockStart = S.time; PLAYER.path = [];
+  S.event = null;
+  if (!SIM) { UI.hideEvent(); say(def.startSay, 3); sfx.meeting(); }
+}
+function finishMeeting() {
+  const def = S.meeting.def;
+  S.meeting = null;
+  applyEffects(def.attend);
+  S.nextEventAt = S.time + rand(CONFIG.events.minGap, CONFIG.events.maxGap);
+  if (!SIM) { say(def.endSay, 3); sfx.choose(); }
+}
+
+/* =====================================================================
+   AUDIO: chiptune beeps generated with Web Audio (no files)
+   ===================================================================== */
+const NOTE = { G2: 98, Ab2: 103.83, Bb2: 116.54, C3: 130.81, D3: 146.83, Eb3: 155.56, F3: 174.61, G3: 196,
+  C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392, A4: 440, B4: 493.88, C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880, C6: 1046.5 };
+
+const Sound = {
+  ctx: null, master: null, musicBus: null, noiseBuf: null,
+  muted: !!Store.get(CONFIG.storageKeys.muted, false),
+  init() {
+    if (!this.ctx) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        this.ctx = new AC();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this.muted ? 0 : CONFIG.audio.volume;
+        this.master.connect(this.ctx.destination);
+        this.musicBus = this.ctx.createGain();
+        this.musicBus.gain.value = CONFIG.audio.musicVolume;
+        this.musicBus.connect(this.master);
+        const len = Math.floor(this.ctx.sampleRate * 0.5);
+        this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const d = this.noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      } catch (e) { this.ctx = null; return; }
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  setMuted(m) {
+    this.muted = m;
+    Store.set(CONFIG.storageKeys.muted, m);
+    if (this.ctx) this.master.gain.setTargetAtTime(m ? 0 : CONFIG.audio.volume, this.ctx.currentTime, 0.02);
+  },
+  tone(freq, dur, o = {}) {
+    if (!this.ctx || SIM) return;
+    const { type = 'square', vol = 0.2, slide = 0, delay = 0, dest = this.master } = o;
+    const t0 = this.ctx.currentTime + Math.max(0, delay);
+    const osc = this.ctx.createOscillator(), g = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(dest);
+    osc.start(t0); osc.stop(t0 + dur + 0.02);
+  },
+  noise(dur, o = {}) {
+    if (!this.ctx || SIM) return;
+    const { vol = 0.15, delay = 0, filter = 0, high = false, dest = this.master } = o;
+    const t0 = this.ctx.currentTime + Math.max(0, delay);
+    const src = this.ctx.createBufferSource(), g = this.ctx.createGain();
+    src.buffer = this.noiseBuf;
+    let node = src;
+    if (filter) { const f = this.ctx.createBiquadFilter(); f.type = high ? 'highpass' : 'lowpass'; f.frequency.value = filter; src.connect(f); node = f; }
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    node.connect(g); g.connect(dest);
+    src.start(t0); src.stop(t0 + dur + 0.02);
+  },
+  seq(notes, step, o = {}) { notes.forEach((f, i) => { if (f) this.tone(f, step * 0.95, { ...o, delay: (o.delay || 0) + i * step }); }); },
+};
+
+const sfx = {
+  start()     { Sound.noise(0.25, { vol: 0.12, filter: 1400 }); Sound.seq([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6], 0.08, { vol: 0.18, delay: 0.1 }); },
+  action()    { Sound.seq([NOTE.E5, NOTE.A5], 0.06, { vol: 0.16 }); },
+  blip()      { Sound.tone(NOTE.A5, 0.04, { vol: 0.1 }); },
+  bump()      { Sound.tone(90, 0.07, { type: 'triangle', vol: 0.35 }); },
+  brew()      { Sound.noise(0.9, { vol: 0.08, filter: 600 }); for (let i = 0; i < 5; i++) Sound.tone(300 + Math.random() * 200, 0.05, { type: 'sine', vol: 0.12, delay: i * 0.18 }); },
+  coffee()    { Sound.noise(0.25, { vol: 0.12, filter: 900 }); Sound.seq([NOTE.G4, NOTE.C5, NOTE.E5], 0.06, { type: 'triangle', vol: 0.3, delay: 0.1 }); },
+  type()      { Sound.tone(1600 + Math.random() * 900, 0.018, { vol: 0.05 }); },
+  stepDone()  { Sound.seq([NOTE.C5, NOTE.G5], 0.06, { vol: 0.14 }); },
+  submit()    { Sound.seq([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.G5, NOTE.C6], 0.07, { vol: 0.16 }); },
+  newCase()   { Sound.tone(988, 0.09, { type: 'triangle', vol: 0.25 }); Sound.tone(1319, 0.14, { type: 'triangle', vol: 0.25, delay: 0.09 }); },
+  jam()       { for (let i = 0; i < 4; i++) Sound.noise(0.08, { vol: 0.2, filter: 1800, delay: i * 0.1 }); Sound.tone(70, 0.4, { type: 'sawtooth', vol: 0.15 }); },
+  meeting()   { Sound.seq([NOTE.E4, NOTE.G4, NOTE.E4, NOTE.C4], 0.2, { type: 'triangle', vol: 0.18 }); },
+  meh()       { Sound.seq([NOTE.A4, NOTE.F4], 0.09, { vol: 0.16 }); },
+  choose()    { Sound.tone(660, 0.1, { vol: 0.18, slide: 1320 }); },
+  denied()    { Sound.tone(110, 0.12, { type: 'sawtooth', vol: 0.14 }); },
+  alert()     { for (let i = 0; i < 3; i++) { Sound.tone(880, 0.12, { vol: 0.16, delay: i * 0.26 }); Sound.tone(660, 0.12, { vol: 0.16, delay: i * 0.26 + 0.13 }); } },
+  exclaim()   { Sound.tone(1200, 0.06, { vol: 0.2 }); Sound.tone(1600, 0.12, { vol: 0.2, delay: 0.07 }); },
+  scold()     { Sound.tone(311, 0.25, { type: 'triangle', vol: 0.3 }); Sound.tone(293, 0.25, { type: 'triangle', vol: 0.3, delay: 0.27 }); Sound.tone(277, 0.6, { type: 'triangle', vol: 0.3, delay: 0.54, slide: 180 }); },
+  directorIncoming() { Sound.tone(110, 0.8, { type: 'sawtooth', vol: 0.2, slide: 55 }); Sound.noise(0.6, { vol: 0.15, filter: 400 }); },
+  director()  { Sound.seq([NOTE.C3, NOTE.C3, NOTE.Eb3, NOTE.C3], 0.18, { type: 'sawtooth', vol: 0.2 }); Sound.noise(0.5, { vol: 0.2, filter: 500 }); },
+  tick()      { Sound.tone(1500, 0.03, { vol: 0.08 }); },
+  bad()       { Sound.tone(420, 0.45, { type: 'sawtooth', vol: 0.2, slide: 70 }); Sound.noise(0.3, { vol: 0.15, filter: 700 }); },
+  danger()    { Sound.tone(98, 0.08, { vol: 0.12 }); Sound.tone(98, 0.08, { vol: 0.09, delay: 0.14 }); },
+  day()       { Sound.seq([NOTE.G4, NOTE.C5, NOTE.E5, NOTE.G5, 0, NOTE.E5, NOTE.G5], 0.08, { vol: 0.16 }); },
+  pause()     { Sound.seq([NOTE.A5, NOTE.E5], 0.05, { vol: 0.12 }); },
+  gameover()  { Sound.seq([NOTE.G4, NOTE.F4, NOTE.E4, NOTE.D4], 0.22, { type: 'triangle', vol: 0.3 }); Sound.tone(NOTE.C4, 0.9, { type: 'triangle', vol: 0.3, slide: 60, delay: 0.9 }); },
+  hiscore()   { Sound.seq([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.G5, NOTE.C6], 0.09, { vol: 0.16, delay: 1.9 }); },
+};
+
+/* Tiny chiptune loop: bass + hi-hat, speeds up when a stat is in danger */
+const Music = {
+  playing: false, step: 0, nextT: 0, timer: null,
+  prog: ['C3', 'Ab2', 'Bb2', 'G2'],
+  start() {
+    if (!CONFIG.audio.music || !Sound.ctx || this.playing) return;
+    this.playing = true; this.step = 0; this.nextT = Sound.ctx.currentTime + 0.1;
+    this.timer = setInterval(() => this.schedule(), 25);
+  },
+  stop() { this.playing = false; clearInterval(this.timer); this.timer = null; },
+  schedule() {
+    if (!this.playing || !Sound.ctx) return;
+    const ctx = Sound.ctx;
+    const tempo = CONFIG.audio.bpm * (S.mode === 'playing' && anyDanger() ? CONFIG.audio.dangerTempo : 1);
+    const stepLen = 60 / tempo / 2;
+    while (this.nextT < ctx.currentTime + 0.12) {
+      const i = this.step % 32, bar = Math.floor(i / 8), beat = i % 8;
+      const root = NOTE[this.prog[bar]];
+      const f = [root, root * 2, root * 1.5, root * 2, root, root * 2, root * 1.5, root * 2][beat];
+      const delay = this.nextT - ctx.currentTime;
+      Sound.tone(f, stepLen * 0.9, { type: 'triangle', vol: 0.22, delay, dest: Sound.musicBus });
+      if (beat % 2 === 1) Sound.noise(0.03, { vol: 0.05, filter: 7000, high: true, delay, dest: Sound.musicBus });
+      if (beat === 0 && this.step % 64 >= 32) Sound.tone(root * 4, stepLen * 1.8, { type: 'square', vol: 0.05, delay, dest: Sound.musicBus });
+      this.nextT += stepLen; this.step++;
+    }
+  },
+};
+
+/* =====================================================================
+   PIXEL FONT: 5x7 bitmap font drawn in code
+   ===================================================================== */
+const FONT = {
+  A:[14,17,17,31,17,17,17], B:[30,17,17,30,17,17,30], C:[14,17,16,16,16,17,14], D:[28,18,17,17,17,18,28],
+  E:[31,16,16,30,16,16,31], F:[31,16,16,30,16,16,16], G:[14,17,16,23,17,17,15], H:[17,17,17,31,17,17,17],
+  I:[14,4,4,4,4,4,14], J:[7,2,2,2,2,18,12], K:[17,18,20,24,20,18,17], L:[16,16,16,16,16,16,31],
+  M:[17,27,21,21,17,17,17], N:[17,17,25,21,19,17,17], O:[14,17,17,17,17,17,14], P:[30,17,17,30,16,16,16],
+  Q:[14,17,17,17,21,18,13], R:[30,17,17,30,20,18,17], S:[15,16,16,14,1,1,30], T:[31,4,4,4,4,4,4],
+  U:[17,17,17,17,17,17,14], V:[17,17,17,17,17,10,4], W:[17,17,17,21,21,21,10], X:[17,17,10,4,10,17,17],
+  Y:[17,17,17,10,4,4,4], Z:[31,1,2,4,8,16,31],
+  0:[14,17,19,21,25,17,14], 1:[4,12,4,4,4,4,14], 2:[14,17,1,2,4,8,31], 3:[31,2,4,2,1,17,14],
+  4:[2,6,10,18,31,2,2], 5:[31,16,30,1,1,17,14], 6:[6,8,16,30,17,17,14], 7:[31,1,2,4,8,8,8],
+  8:[14,17,17,14,17,17,14], 9:[14,17,17,15,1,2,12],
+  ' ':[0,0,0,0,0,0,0], '.':[0,0,0,0,0,12,12], ',':[0,0,0,0,12,4,8], '!':[4,4,4,4,4,0,4],
+  '?':[14,17,1,2,4,0,4], '-':[0,0,0,31,0,0,0], '+':[0,4,4,31,4,4,0], ':':[0,12,12,0,12,12,0],
+  "'":[12,4,8,0,0,0,0], '"':[10,10,0,0,0,0,0], '/':[0,1,2,4,8,16,0], '%':[24,25,2,4,8,19,3],
+  '(':[2,4,8,8,8,4,2], ')':[8,4,2,2,2,4,8], '#':[10,10,31,10,31,10,10], '=':[0,0,31,0,31,0,0],
+  '>':[8,4,2,1,2,4,8], '<':[2,4,8,16,8,4,2], '&':[12,18,20,8,21,18,13], '*':[0,4,21,14,21,4,0], '_':[0,0,0,0,0,0,31],
+  '[':[14,8,8,8,8,8,14], ']':[14,2,2,2,2,2,14],
+};
+function pxWidth(text, s) { return text.length * 6 * s - s; }
+function drawPxRaw(ctx, text, x, y, s, color) {
+  ctx.fillStyle = color;
+  for (let i = 0; i < text.length; i++) {
+    const g = FONT[text[i]] || FONT[' '];
+    for (let r = 0; r < 7; r++) {
+      const row = g[r];
+      if (!row) continue;
+      for (let c = 0; c < 5; c++) if (row & (16 >> c)) ctx.fillRect(x + (i * 6 + c) * s, y + r * s, s, s);
+    }
+  }
+}
+function drawPx(ctx, text, x, y, s, color, align = 'left', shadow = null) {
+  text = String(text).toUpperCase();
+  const w = pxWidth(text, s);
+  const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  if (shadow) drawPxRaw(ctx, text, x0 + s, y + s, s, shadow);
+  drawPxRaw(ctx, text, x0, y, s, color);
+}
+function wrapWords(text, maxChars) {
+  const words = String(text).toUpperCase().split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if (cur && (cur + ' ' + w).length > maxChars) { lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+/* A crisp <canvas> element containing pixel text (for DOM overlays) */
+function pxCanvas(lines, s, color, shadow = '#000', cls = '') {
+  if (typeof lines === 'string') lines = [lines.toUpperCase()];
+  const maxLen = Math.max(...lines.map((l) => l.length));
+  const c = document.createElement('canvas');
+  c.width = pxWidth('x'.repeat(maxLen), s) + s;
+  c.height = lines.length * 9 * s - 2 * s + s;
+  c.className = 'px ' + cls;
+  const ctx = c.getContext('2d');
+  lines.forEach((l, i) => {
+    const x = (c.width - s - pxWidth(l, s)) / 2;
+    drawPxRaw(ctx, l, x + s, i * 9 * s + s, s, shadow);
+    drawPxRaw(ctx, l, x, i * 9 * s, s, color);
+  });
+  return c;
+}
+
+/* =====================================================================
+   RENDERING: camera, office tiles, furniture (all canvas paths)
+   ===================================================================== */
+const INK = '#1d1830';
+const cv = $('#world'), ctx = cv.getContext('2d');
+const cam = { x: 0, y: 0, zoom: 2, inset: 0, vw: 0, vh: 0, dpr: 1 };
+
+function resizeView() {
+  cam.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(innerWidth * cam.dpr);
+  cv.height = Math.round(innerHeight * cam.dpr);
+  cam.inset = innerWidth <= 700 ? Math.round($('#hudTop').getBoundingClientRect().bottom) : 0;
+  updateCamera(0, true);
+}
+function updateCamera(dt, snap) {
+  const W = innerWidth, H = Math.max(120, innerHeight - cam.inset);
+  cam.zoom = Math.min(Math.max(innerWidth, innerHeight) / (CONFIG.view.tilesAcross * T), Math.min(W, H) / (CONFIG.view.minTiles * T));
+  cam.vw = W / cam.zoom; cam.vh = H / cam.zoom;
+  const mw = MAP_W * T, mh = MAP_H * T;
+  let tx = PLAYER.x - cam.vw / 2, ty = PLAYER.y - 24 - cam.vh / 2;
+  tx = mw <= cam.vw ? (mw - cam.vw) / 2 : clamp(tx, 0, mw - cam.vw);
+  ty = mh <= cam.vh ? (mh - cam.vh) / 2 : clamp(ty, 0, mh - cam.vh);
+  const k = snap ? 1 : 1 - Math.exp(-dt * 10);
+  cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+}
+function shakeOffset() {
+  if (V.shakeT <= 0) return { x: 0, y: 0 };
+  return { x: rand(-1, 1) * V.shakeMag, y: rand(-1, 1) * V.shakeMag };
+}
+function toScreen(wx, wy) { return { x: (wx - cam.x) * cam.zoom, y: cam.inset + (wy - cam.y) * cam.zoom }; }
+function toWorld(sx, sy) { return { x: sx / cam.zoom + cam.x, y: (sy - cam.inset) / cam.zoom + cam.y }; }
+
+// ---- primitives ----
+function rr(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r);
+  c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  c.lineTo(x + r, y + h); c.quadraticCurveTo(x, y + h, x, y + h - r);
+  c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath();
+}
+function ellipse(c, x, y, rx, ry) { c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); }
+function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); }
+function line(c, x1, y1, x2, y2) { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
+function ink(c, w, color = INK) { c.lineWidth = w; c.strokeStyle = color; c.stroke(); }
+function box(c, x, y, w, h, r, fill, lw = 2.5) { c.fillStyle = fill; rr(c, x, y, w, h, r); c.fill(); ink(c, lw); }
+
+// ---- floors + walls ----
+const FLOOR_STYLE = {
+  open:     ['#a7b4d9', '#9daad1'],
+  door:     ['#a7b4d9', '#9daad1'],
+  kitchen:  ['#ece6d2', '#d6ceb4'],
+  break:    ['#d19c63', '#c38e56'],
+  meeting:  ['#5fb2ae', '#57a6a2'],
+  manager:  ['#8b9bd4', '#8292cb'],
+  director: ['#b24a58', '#a8404f'],
+};
+function drawFloorTile(c, tx, ty) {
+  const key = FLOOR[ty][tx], st = FLOOR_STYLE[key] || FLOOR_STYLE.open, X = tx * T, Y = ty * T;
+  if (key === 'kitchen') { c.fillStyle = (tx + ty) % 2 ? st[0] : st[1]; c.fillRect(X, Y, T, T); return; }
+  c.fillStyle = st[0]; c.fillRect(X, Y, T, T);
+  c.fillStyle = st[1];
+  if (key === 'break') { for (let i = 0; i < 4; i++) c.fillRect(X, Y + i * 8 + 7, T, 1); c.fillRect(X + ((ty % 2) ? 10 : 24), Y, 1, T); }
+  else if (key === 'open' || key === 'door') { c.fillRect(X, Y, T, 1); c.fillRect(X, Y, 1, T); c.fillRect(X + 15, Y + 15, 2, 2); }
+  else { c.fillRect(X + 7, Y + 7, 2, 2); c.fillRect(X + 23, Y + 23, 2, 2); }
+}
+function drawWallTile(c, tx, ty) {
+  const X = tx * T, Y = ty * T;
+  c.fillStyle = '#4a4f7a'; c.fillRect(X, Y, T, T);
+  c.fillStyle = '#565c8c'; c.fillRect(X, Y, T, 3);
+  if (ty + 1 < MAP_H && GRID[ty + 1][tx] !== '#') {   // front face of the wall, like GBA interiors
+    c.fillStyle = '#efe4c8'; c.fillRect(X, Y + 10, T, 22);
+    c.fillStyle = '#d9cba8'; c.fillRect(X, Y + 18, T, 1);
+    c.fillStyle = '#8a6a4a'; c.fillRect(X, Y + 28, T, 4);
+    c.fillStyle = INK; c.fillRect(X, Y + 9, T, 2);
+  }
+}
+function drawZoneDecor(c) {
+  // rugs, borders and room labels painted on the floor
+  const d = ZONES.director;
+  c.strokeStyle = '#e8c35a'; c.lineWidth = 3; c.strokeRect(d.x * T + 6, d.y * T + 6, d.w * T - 12, d.h * T - 12);
+  c.fillStyle = '#6f86c9'; ellipse(c, 17 * T, 3.6 * T, 3 * T, 1.3 * T); c.fill();
+  c.fillStyle = '#e9a15a'; ellipse(c, 20.5 * T, 21 * T, 3.2 * T, 1.4 * T); c.fill();
+  c.fillStyle = '#d98c45'; ellipse(c, 20.5 * T, 21 * T, 2.4 * T, 0.9 * T); c.fill();
+  for (const [key, z] of Object.entries(ZONES)) {
+    const yl = key === 'open' ? (z.y + z.h) * T - 12 : z.y < 7 ? (z.y + z.h) * T - 12 : z.y * T + 4;
+    drawPx(c, z.label, (z.x + z.w / 2) * T, yl, 1, 'rgba(29,24,48,.35)', 'center');
+  }
+}
+
+// ---- furniture ----
+function drawObj(c, o, t) {
+  const X = o.x * T, Y = o.y * T, W = o.w * T, H = o.h * T;
+  switch (o.type) {
+    case 'D': case 'M': return drawDesk(c, o, X, Y, W, H, t);
+    case 'C': {
+      box(c, X, Y + 4, W, H - 6, 3, '#b9bfdc');
+      box(c, X + 12, Y - 14, W - 24, H + 8, 5, '#4b5378');
+      c.fillStyle = '#1b1d33'; rr(c, X + 16, Y - 10, W - 32, 9, 2); c.fill();
+      drawPx(c, o.label || 'JAVA', X + W / 2, Y - 9, 1, '#ffb000', 'center');
+      c.fillStyle = S.time < (S.coffeeReady[o.id] || 0) || S.brewing === o ? (Math.sin(t * 10) > 0 ? '#ff3b3b' : '#6a1a2a') : '#39ff88';
+      circle(c, X + W - 17, Y + 5, 2.5); c.fill();
+      box(c, X + W / 2 - 6, Y + 6, 12, 10, 2, '#ffffff', 2);
+      if (S.brewing === o && Math.random() < 0.3) emit('steam', X + W / 2 + rand(-3, 3), Y + 2, { vx: rand(-5, 5), vy: -25, life: 0.8 });
+      return;
+    }
+    case 'K': {
+      box(c, X, Y + 2, W, H - 4, 3, '#c7cbe2'); c.fillStyle = '#e2e5f3'; c.fillRect(X + 3, Y + 4, W - 6, 6);
+      if (o.w >= 5) { box(c, X + W * 0.35, Y + 9, 22, 14, 3, '#8d93b8', 2); c.fillStyle = '#5a6088'; circle(c, X + W * 0.35 + 11, Y + 8, 2.5); c.fill(); box(c, X + W * 0.75, Y + 6, 14, 14, 4, '#e53935', 2); }
+      else { box(c, X + 8, Y + 4, 34, 20, 3, '#3a3f5c', 2); c.fillStyle = '#39ff88'; c.fillRect(X + 32, Y + 8, 6, 3); }
+      return;
+    }
+    case 'F': box(c, X + 3, Y - 10, W - 6, H + 8, 5, '#eef1fa'); c.strokeStyle = INK; c.lineWidth = 2; line(c, X + 3, Y + 16, X + W - 3, Y + 16);
+      c.fillStyle = '#9aa3b5'; c.fillRect(X + W - 12, Y, 3, 10); c.fillRect(X + W - 12, Y + 22, 3, 12);
+      c.fillStyle = '#ffd23f'; c.fillRect(X + 10, Y + 24, 12, 10); c.fillStyle = '#ff3fb4'; circle(c, X + 14, Y - 2, 3); c.fill(); return;
+    case 'k': c.fillStyle = 'rgba(0,0,0,.18)'; ellipse(c, X + W / 2, Y + H / 2 + 6, W / 2, H / 2 - 4); c.fill();
+      c.fillStyle = '#b8895a'; ellipse(c, X + W / 2, Y + H / 2, W / 2 - 2, H / 2 - 6); c.fill(); ink(c, 2.5);
+      box(c, X + W / 2 - 10, Y + H / 2 - 8, 20, 14, 2, '#ff9ecf', 2);
+      for (const [mx, my] of [[X + 16, Y + 20], [X + W - 18, Y + 26], [X + 22, Y + H - 18]]) { box(c, mx - 4, my - 4, 8, 8, 2, '#ffffff', 1.5); }
+      return;
+    case 'T': {
+      for (let i = 0; i < o.w; i++) { for (const cy of [Y - 2, Y + H + 2]) { c.fillStyle = '#3d4466'; circle(c, X + i * T + 16, cy, 7); c.fill(); ink(c, 2); } }
+      box(c, X + 2, Y + 4, W - 4, H - 8, 16, '#8a6247', 3);
+      c.fillStyle = '#9d7153'; rr(c, X + 8, Y + 8, W - 16, 8, 4); c.fill();
+      for (let i = 1; i < o.w - 1; i += 2) box(c, X + i * T + 6, Y + 20, 20, 13, 2, '#c9cfdf', 1.5);
+      c.fillStyle = '#1d1830'; c.beginPath(); c.moveTo(X + W / 2 - 7, Y + H / 2 + 6); c.lineTo(X + W / 2 + 7, Y + H / 2 + 6); c.lineTo(X + W / 2, Y + H / 2 - 5); c.fill();
+      return;
+    }
+    case 'W': box(c, X + 4, Y - 14, W - 8, H + 4, 3, '#f7f7ff', 3);
+      c.strokeStyle = '#e53935'; c.lineWidth = 2; c.beginPath(); c.moveTo(X + 20, Y + 12); c.lineTo(X + 50, Y); c.lineTo(X + 70, Y + 8); c.lineTo(X + 100, Y - 8); c.stroke();
+      drawPx(c, 'SIGNALS???', X + 190, Y - 8, 1, '#2b59c3', 'center'); drawPx(c, 'PBRER FRI!', X + 190, Y + 4, 1, '#e53935', 'center');
+      return;
+    case 'H': box(c, X + 2, Y - 14, W - 4, H + 8, 3, '#7a5536');
+      ['#e53935', '#29a3ff', '#ffd23f', '#39c46b', '#9b5de5', '#ff9d2e'].forEach((col, i) => { for (let r = 0; r < 2; r++) { c.fillStyle = col; c.fillRect(X + 8 + i * 18 + r * 7, Y - 10 + r * 16, 6, 13); } });
+      return;
+    case 'X': box(c, X + 2, Y + 3, W - 4, H - 6, 4, '#6d7fbf');
+      box(c, X + 12, Y + 8, 22, 14, 2, '#ffffff', 1.5); box(c, X + W - 30, Y + 6, 10, 10, 3, '#ffffff', 1.5);
+      box(c, X + W / 2 - 16, Y + H - 13, 32, 8, 2, '#e8c35a', 1.5); drawPx(c, 'PAT', X + W / 2, Y + H - 12, 1, INK, 'center');
+      return;
+    case 'Z': box(c, X + 2, Y + 3, W - 4, H - 6, 4, '#3a2530'); c.strokeStyle = '#e8c35a'; c.lineWidth = 2; rr(c, X + 6, Y + 7, W - 12, H - 14, 3); c.stroke();
+      box(c, X + W / 2 - 14, Y + 8, 28, 12, 2, '#c9cfdf', 1.5); c.fillStyle = '#e8c35a'; circle(c, X + 18, Y + 16, 5); c.fill();
+      return;
+    case 'P': {
+      const jam = S.time < S.printerJamUntil;
+      box(c, X + 2, Y + 6, W - 4, H - 10, 4, '#d6dbea');
+      c.fillStyle = '#3a3f5c'; c.fillRect(X + 6, Y + 14, W - 12, 5);
+      box(c, X + 6, Y + 26, W - 12, 12, 1, '#ffffff', 1.5);
+      c.fillStyle = jam ? (Math.sin(t * 12) > 0 ? '#ff3b3b' : '#6a1a2a') : '#39ff88'; circle(c, X + W - 8, Y + 48, 2.5); c.fill();
+      if (jam) { c.fillStyle = '#fff'; c.save(); c.translate(X + 8, Y + 14); c.rotate(-0.5); c.fillRect(-4, -10, 12, 12); c.restore(); }
+      return;
+    }
+    case 's': box(c, X, Y + 2, W, H - 2, 7, '#7b4bb5', 3); box(c, X + 8, Y + 4, W - 16, 16, 5, '#9a6ad6', 2);
+      c.strokeStyle = INK; c.lineWidth = 1.5; for (let i = 1; i < o.w; i++) line(c, X + i * T, Y + 6, X + i * T, Y + 18); return;
+    case 'v': box(c, X + 10, Y + 12, W - 20, 12, 2, '#3a3f5c', 2); box(c, X + 2, Y - 12, W - 4, 26, 3, '#101018', 3);
+      c.fillStyle = '#1f3b8a'; c.fillRect(X + 6, Y - 8, W - 12, 18);
+      drawPx(c, 'PV NEWS', X + W / 2, Y - 5, 1, '#ffd23f', 'center');
+      c.fillStyle = '#e53935'; c.fillRect(X + 6, Y + 5, W - 12, 5);
+      drawPx(c, 'SOP', X + 6 + ((t * 20) % (W - 20)), Y + 4, 1, '#fff'); return;
+    case 'g': box(c, X + 2, Y + 4, W - 4, H - 8, 3, '#2e8b57', 3);
+      c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(X + 7, Y + 9, W - 14, H - 18); line(c, X + W / 2, Y + 9, X + W / 2, Y + H - 9);
+      c.fillStyle = '#e53935'; circle(c, X + 24, Y + H / 2, 5); c.fill(); circle(c, X + W - 24, Y + H / 2, 5); c.fill(); return;
+    case 'a': box(c, X + 3, Y - 12, W - 6, H + 8, 4, '#3a1a6a'); c.strokeStyle = '#ff3fb4'; c.lineWidth = 2; rr(c, X + 5, Y - 10, W - 10, H + 4, 3); c.stroke();
+      c.fillStyle = `hsl(${(t * 120) % 360},90%,60%)`; c.fillRect(X + 8, Y - 4, W - 16, 18);
+      c.fillStyle = '#e53935'; circle(c, X + 12, Y + 24, 3); c.fill(); return;
+    case 'p': c.fillStyle = 'rgba(0,0,0,.18)'; ellipse(c, X + 16, Y + 28, 10, 4); c.fill();
+      box(c, X + 9, Y + 14, 14, 14, 3, '#c0613a', 2);
+      c.fillStyle = '#2fbf71'; for (const [lx, ly, r] of [[16, 6, 8], [9, 10, 6], [23, 10, 6]]) { circle(c, X + lx, Y + ly, r); c.fill(); ink(c, 2); }
+      c.fillStyle = '#58e08f'; circle(c, X + 14, Y + 4, 3); c.fill(); return;
+    case 'w': box(c, X + 8, Y + 10, 16, 18, 3, '#e6eaf5', 2); c.fillStyle = '#6ec6ff'; circle(c, X + 16, Y + 5, 7); c.fill(); ink(c, 2); return;
+  }
+}
+function drawDesk(c, o, X, Y, W, H, t) {
+  const up = o.sitterAbove;
+  c.fillStyle = 'rgba(0,0,0,.15)'; c.fillRect(X + 3, Y + H - 4, W - 6, 4);
+  box(c, X + 2, Y + 3, W - 4, H - 6, 4, '#c9a172');
+  c.fillStyle = '#d8b385'; c.fillRect(X + 5, Y + 6, W - 10, 4);
+  const my = up ? Y + H - 16 : Y + 6;
+  box(c, X + W / 2 - 13, my, 26, 10, 2, '#2b2f45', 2);
+  const mine = o.type === 'M';
+  c.fillStyle = mine ? (S.cases.length ? (Math.sin(t * 6) > 0 ? '#ffd23f' : '#ff9d2e') : '#39ff88') : '#29e6ff';
+  c.fillRect(X + W / 2 - 11, up ? my + 1 : my + 7, 22, 2);
+  box(c, X + W / 2 - 9, up ? Y + 7 : Y + H - 13, 18, 5, 1.5, '#eef1fa', 1.2);
+  if (o.id % 3 === 0) box(c, X + 7, up ? Y + 8 : Y + H - 15, 7, 7, 2, '#ffffff', 1.5);
+  if (o.id % 2 === 0) { c.fillStyle = '#ffffff'; c.fillRect(X + W - 16, up ? Y + 7 : Y + H - 15, 10, 8); }
+  if (mine) {
+    c.fillStyle = '#ffd23f'; c.fillRect(X + 6, my + 1, 5, 5); c.fillStyle = '#ff9ecf'; c.fillRect(X + W - 12, my + 2, 5, 5);
+    if (S.cases.length) { c.strokeStyle = `rgba(255,210,63,${0.5 + 0.5 * Math.sin(t * 6)})`; c.lineWidth = 2; rr(c, X, Y + 1, W, H - 2, 5); c.stroke(); }
+  }
+}
+function drawChair(c, o) {
+  const s = seatTile(o), x = (s.tx) * T, y = (s.ty + 0.5) * T;
+  c.fillStyle = '#3d4466';
+  rr(c, x - 9, y - 6, 18, 14, 5); c.fill(); ink(c, 2);
+}
+const CHAIRS = OBJECTS.filter((o) => o.type === 'D' || o.type === 'M');
+
+/* =====================================================================
+   PEOPLE: chunky top-down 3/4 characters (origin = feet)
+   ===================================================================== */
+function moodOf(e) {
+  if (e === PLAYER) {
+    const st = S.stats, C = CONFIG;
+    if (S.mode === 'gameover') return 'dead';
+    if (st.caffeine > C.jitter.threshold) return 'jittery';
+    if (V.happyUntil > V.t) return 'happy';
+    if (st.energy < C.moods.exhaustedBelow || st.caffeine < C.stats.caffeine.danger) return 'exhausted';
+    if (st.sanity < C.moods.stressedBelow || st.compliance < C.moods.stressedBelow || S.cases.some((c) => c.late)) return 'stressed';
+    return 'normal';
+  }
+  if (e.state === 'approach' || (e.state === 'scene' && e.role === 'manager')) return 'stressed';
+  if (e.state === 'talk') return 'happy';
+  return 'normal';
+}
+function drawPerson(c, e, t, o = {}) {
+  const L = e.look, s = (L.scale || 1) * (o.scale || 1);
+  const mood = o.mood || moodOf(e), dir = o.dir || e.dir;
+  const moving = e.moving, k = moving ? Math.min(1, e.moveT / e.moveDur) : 0;
+  c.save();
+  c.translate(o.x ?? e.x, o.y ?? e.y); c.scale(s, s);
+  if (!o.noShadow) { c.fillStyle = 'rgba(0,0,0,.28)'; ellipse(c, 0, -1, 12, 4.5); c.fill(); }
+  if (mood === 'jittery') c.translate(rand(-1.5, 1.5), rand(-1, 1));
+  // step cycle: one foot forward per tile, like the classic games
+  const stepPhase = moving ? Math.sin(k * Math.PI) : 0;
+  const bob = moving ? stepPhase * 2 : Math.sin(t * 2 + e.seed) * 0.5;
+  const lead = e.foot ? 1 : -1;
+  for (const side of [-1, 1]) {
+    const lift = side === lead ? stepPhase * 3 : 0;
+    c.fillStyle = L.pants || '#34385a'; rr(c, side * 5 - 3.5, -10 - lift, 7, 9, 3); c.fill(); ink(c, 2);
+    c.fillStyle = '#16151f'; rr(c, side * 5 - 4.5, -4 - lift, 9, 4.5, 2.2); c.fill(); ink(c, 1.5);
+  }
+  c.translate(0, -bob + (mood === 'exhausted' ? 1.5 : 0));
+  const face = dir !== 'up', sx = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+  const bodyCol = L.jacket || L.shirt;
+  // body
+  c.fillStyle = face ? L.shirt : bodyCol; rr(c, -11, -28, 22, 20, 8); c.fill();
+  if (face && L.jacket) {
+    c.save(); rr(c, -11, -28, 22, 20, 8); c.clip(); c.fillStyle = L.jacket;
+    c.fillRect(-12, -30, 8 + sx * 3, 24); c.fillRect(4 + sx * 3, -30, 9, 24); c.restore();
+  }
+  rr(c, -11, -28, 22, 20, 8); ink(c, 2.5);
+  if (face) {
+    if (L.tie) { c.fillStyle = L.tie; c.beginPath(); c.moveTo(sx * 2 - 2, -27); c.lineTo(sx * 2 + 2, -27); c.lineTo(sx * 2 + 3, -15); c.lineTo(sx * 2, -12); c.lineTo(sx * 2 - 3, -15); c.closePath(); c.fill(); ink(c, 1.2); }
+    if (L.lanyard) {
+      c.strokeStyle = L.lanyard; c.lineWidth = 1.8;
+      c.beginPath(); c.moveTo(-5 + sx * 2, -27); c.lineTo(sx * 2, -18); c.lineTo(5 + sx * 2, -27); c.stroke();
+      c.fillStyle = '#fff'; rr(c, sx * 2 - 3.5, -18, 7, 8, 1.5); c.fill(); ink(c, 1.3);
+      c.fillStyle = L.lanyard; c.fillRect(sx * 2 - 3.5, -18, 7, 2.5);
+    }
+    if (L.hoodie) { c.strokeStyle = '#fff'; c.lineWidth = 1.3; line(c, -3 + sx * 2, -26, -3 + sx * 2, -20); line(c, 3 + sx * 2, -26, 3 + sx * 2, -20); }
+  }
+  // arms
+  const swing = moving ? stepPhase * 3 * lead : 0;
+  for (const side of [-1, 1]) {
+    const wave = o.wave && side > 0;
+    const ay = wave ? -40 + Math.sin(t * 8) * 2 : -24 + side * swing;
+    c.fillStyle = bodyCol; rr(c, side * 12 - 3.5, ay, 7, wave ? 14 : 12, 3.5); c.fill(); ink(c, 2);
+    c.fillStyle = L.skin; circle(c, side * 12, wave ? ay : ay + 12, 3.2); c.fill(); ink(c, 1.5);
+  }
+  if (face) {
+    if (L.mug) { box(c, 11, -16, 7, 7, 1.5, '#ffffff', 1.5); }
+    if (L.papers) { box(c, -8, -21, 16, 10, 1, '#ffffff', 1.5); c.fillStyle = '#9aa3b5'; c.fillRect(-5, -18, 10, 1); c.fillRect(-5, -15, 8, 1); }
+    if (L.pen) { c.strokeStyle = '#e53935'; c.lineWidth = 2.5; line(c, 12, -12, 15, -19); }
+  }
+  // head
+  const hy = -40;
+  if (L.hoodie && face) { c.fillStyle = L.jacket; circle(c, 0, hy + 3, 14); c.fill(); ink(c, 2); }
+  c.fillStyle = L.skin; circle(c, 0, hy, 12.5); c.fill(); ink(c, 2.5);
+  drawHair(c, L, dir, sx, hy);
+  if (face) drawFaceP(c, L, mood, sx, hy, t, e);
+  if (L.headset) {
+    c.strokeStyle = INK; c.lineWidth = 3.5; c.beginPath(); c.arc(0, hy, 14.5, Math.PI * 1.08, Math.PI * 1.92); c.stroke();
+    c.strokeStyle = '#555c7a'; c.lineWidth = 1.8; c.stroke();
+    for (const side of [-1, 1]) { c.fillStyle = '#2b2f45'; circle(c, side * 13.5, hy + 1, 3.8); c.fill(); ink(c, 1.5); }
+    if (face) { c.strokeStyle = INK; c.lineWidth = 2; c.beginPath(); c.moveTo(-13, hy + 4); c.quadraticCurveTo(-11, hy + 10, sx * 3 - 5, hy + 8); c.stroke(); c.fillStyle = '#222'; circle(c, sx * 3 - 5, hy + 8, 1.8); c.fill(); }
+  }
+  if (L.headphones) {
+    c.strokeStyle = INK; c.lineWidth = 5; c.beginPath(); c.arc(0, hy, 15, Math.PI * 1.08, Math.PI * 1.92); c.stroke();
+    c.strokeStyle = '#ff3fb4'; c.lineWidth = 3; c.stroke();
+    for (const side of [-1, 1]) { c.fillStyle = '#ff3fb4'; circle(c, side * 14, hy + 1, 5.5); c.fill(); ink(c, 2); }
+  }
+  // mood extras
+  if (mood === 'stressed') {
+    const dy = (t * 20) % 12;
+    c.globalAlpha = 1 - dy / 12; c.fillStyle = '#7fd8ff';
+    c.beginPath(); c.moveTo(13, hy - 10 + dy); c.quadraticCurveTo(17, hy - 3 + dy, 13, hy - 2 + dy); c.quadraticCurveTo(9, hy - 3 + dy, 13, hy - 10 + dy); c.fill(); ink(c, 1.2);
+    c.globalAlpha = 1;
+  }
+  if (mood === 'jittery') { c.strokeStyle = '#fff'; c.lineWidth = 2; for (const side of [-1, 1]) for (let i = 0; i < 3; i++) { const yy = -44 + i * 12 + rand(-2, 2); line(c, side * (17 + rand(0, 2)), yy, side * (23 + rand(0, 3)), yy - 2); } }
+  c.restore();
+}
+function drawHair(c, L, dir, sx, hy) {
+  c.fillStyle = L.hair;
+  if (L.hairStyle === 'bald') { for (const side of [-1, 1]) { ellipse(c, side * 11, hy + 1, 3, 4.5); c.fill(); ink(c, 1.5); } return; }
+  if (dir === 'up') {
+    circle(c, 0, hy, 12.5); c.fill(); ink(c, 2.5);
+    if (L.hairStyle === 'bun') { circle(c, 0, hy - 3, 5.5); c.fill(); ink(c, 2); }
+    if (L.hairStyle === 'ponytail') { rr(c, -3, hy + 6, 6, 11, 3); c.fill(); ink(c, 2); }
+    return;
+  }
+  c.beginPath(); c.moveTo(-12.5, hy + 1); c.arc(0, hy, 12.5, Math.PI, 0); c.lineTo(12.5, hy + 1);
+  c.quadraticCurveTo(6 + sx * 3, hy - 7, -2 + sx * 3, hy - 4); c.quadraticCurveTo(-8, hy - 6, -12.5, hy + 1); c.closePath();
+  c.fill(); ink(c, 2);
+  if (L.hairStyle === 'cowlick') { c.beginPath(); c.moveTo(-1, hy - 12); c.quadraticCurveTo(4, hy - 21, 8, hy - 15); c.lineWidth = 4.5; c.strokeStyle = INK; c.stroke(); c.lineWidth = 2.5; c.strokeStyle = L.hair; c.stroke(); }
+  if (L.hairStyle === 'bun') { circle(c, 0, hy - 13, 5.5); c.fill(); ink(c, 2); }
+  if (L.hairStyle === 'ponytail' && sx) { rr(c, -sx * 13 - 3, hy - 2, 6, 13, 3); c.fill(); ink(c, 2); }
+  if (L.hairStyle === 'curly') { for (let i = 0; i < 5; i++) { circle(c, -10 + i * 5, hy - 9 + (i % 2) * 2, 4); c.fill(); ink(c, 1.5); } }
+  if (L.hairStyle === 'slick') { c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 2; c.beginPath(); c.arc(0, hy, 9, Math.PI * 1.2, Math.PI * 1.5); c.stroke(); }
+}
+function drawFaceP(c, L, mood, sx, hy, t, e) {
+  const ex = sx * 3, ey = hy + 1;
+  c.fillStyle = 'rgba(255,110,130,.35)'; ellipse(c, ex - 7, ey + 4, 2.5, 1.5); c.fill(); ellipse(c, ex + 7, ey + 4, 2.5, 1.5); c.fill();
+  c.fillStyle = INK; c.strokeStyle = INK; c.lineWidth = 1.8;
+  if (L.sunglasses) {
+    c.fillStyle = '#0c0c12'; rr(c, ex - 9, ey - 3.5, 7.5, 5, 2); c.fill(); rr(c, ex + 1.5, ey - 3.5, 7.5, 5, 2); c.fill(); line(c, ex - 2, ey - 2, ex + 2, ey - 2);
+    c.fillStyle = '#fff'; c.fillRect(ex - 7, ey - 2.5, 2, 1);
+  } else {
+    for (const side of [-1, 1]) {
+      const x = ex + side * 4.5;
+      if (mood === 'happy') { c.beginPath(); c.moveTo(x - 2.5, ey + 1); c.quadraticCurveTo(x, ey - 3, x + 2.5, ey + 1); c.stroke(); }
+      else if (mood === 'exhausted') { c.beginPath(); c.moveTo(x - 2.5, ey); c.quadraticCurveTo(x, ey + 2, x + 2.5, ey); c.stroke(); }
+      else if (mood === 'jittery') { c.fillStyle = '#fff'; circle(c, x, ey, 3); c.fill(); c.lineWidth = 1; c.stroke(); c.lineWidth = 1.8; c.fillStyle = INK; circle(c, x + rand(-0.8, 0.8), ey, 1); c.fill(); }
+      else if (mood === 'dead') { line(c, x - 2, ey - 2, x + 2, ey + 2); line(c, x + 2, ey - 2, x - 2, ey + 2); }
+      else if (((t + e.seed) % 4) < 0.12) line(c, x - 2, ey, x + 2, ey);
+      else { circle(c, x, ey, 1.9); c.fill(); }
+    }
+    if (mood === 'stressed') { line(c, ex - 7, ey - 5, ex - 2.5, ey - 3.5); line(c, ex + 7, ey - 5, ex + 2.5, ey - 3.5); }
+    if (L.glasses) {
+      c.lineWidth = 1.4; for (const side of [-1, 1]) { circle(c, ex + side * 4.5, ey, 3.6); c.stroke(); }
+      c.strokeStyle = '#e8c35a'; c.lineWidth = 1; c.beginPath(); c.moveTo(ex - 8, ey); c.quadraticCurveTo(-8, hy + 16, 0, hy + 13); c.quadraticCurveTo(8, hy + 16, ex + 8, ey); c.stroke();
+      c.strokeStyle = INK;
+    }
+  }
+  const my = ey + 6;
+  c.lineWidth = 1.6;
+  if (mood === 'happy') { c.fillStyle = '#7a1f2b'; c.beginPath(); c.moveTo(ex - 3.5, my - 1); c.quadraticCurveTo(ex, my + 5, ex + 3.5, my - 1); c.closePath(); c.fill(); c.stroke(); }
+  else if (mood === 'stressed') { c.beginPath(); c.moveTo(ex - 3.5, my); c.lineTo(ex - 1.5, my - 1.2); c.lineTo(ex + 0.5, my); c.lineTo(ex + 2.5, my - 1.2); c.lineTo(ex + 4, my); c.stroke(); }
+  else if (mood === 'jittery') { c.fillStyle = '#fff'; rr(c, ex - 4, my - 2, 8, 4, 1); c.fill(); c.stroke(); line(c, ex, my - 2, ex, my + 2); }
+  else if (mood === 'exhausted') { ellipse(c, ex, my, 1.3, 1.6); c.fillStyle = INK; c.fill(); }
+  else if (mood === 'dead') { c.fillStyle = '#ff7b8a'; rr(c, ex - 1, my - 1, 3, 4, 1.2); c.fill(); line(c, ex - 3, my - 1, ex + 3, my - 1); }
+  else { c.beginPath(); c.arc(ex, my - 2, 2.6, Math.PI * 0.2, Math.PI * 0.8); c.stroke(); }
+}
+
+/* =====================================================================
+   PARTICLES, POP-UPS, BUBBLES
+   ===================================================================== */
+function emit(type, x, y, o = {}) {
+  if (SIM) return;
+  V.particles.push({ type, x, y, vx: o.vx ?? rand(-20, 20), vy: o.vy ?? -40, g: o.g ?? 0, life: o.life ?? 1, max: o.life ?? 1, rot: rand(-0.5, 0.5), ...o });
+}
+function pop(text, color, size = 2) {
+  if (SIM) return;
+  const big = size >= 3;
+  const used = new Set(V.pops.filter((p) => p.big === big && p.age < p.life * 0.7).map((p) => p.slot));
+  let slot = 0; while (used.has(slot)) slot++;
+  V.pops.push({ text, color, s: size, big, slot, age: 0, life: big ? 1.9 : 1.4 });
+}
+function drawParticles(c) {
+  for (const p of V.particles) {
+    c.globalAlpha = Math.min(1, p.life / 0.4);
+    if (p.type === 'steam') { c.fillStyle = 'rgba(255,255,255,.7)'; circle(c, p.x, p.y, 3 + (1 - p.life) * 3); c.fill(); }
+    else if (p.type === 'paper') { c.save(); c.translate(p.x, p.y); c.rotate(p.rot += 0.1); c.fillStyle = '#fff'; c.fillRect(-4, -5, 8, 10); c.strokeStyle = INK; c.lineWidth = 1; c.strokeRect(-4, -5, 8, 10); c.restore(); }
+    else if (p.type === 'star') { c.fillStyle = p.color || '#ffd23f'; c.fillRect(p.x - 1, p.y - 4, 2, 8); c.fillRect(p.x - 4, p.y - 1, 8, 2); }
+    else if (p.type === 'z') drawPx(c, 'Z', p.x, p.y, 1, '#3a4a8a', 'center');
+  }
+  c.globalAlpha = 1;
+}
+function updateParticles(dt) {
+  for (const p of V.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.life -= dt; }
+  V.particles = V.particles.filter((p) => p.life > 0);
+  for (const p of V.pops) p.age += dt;
+  V.pops = V.pops.filter((p) => p.age < p.life);
+}
+function wrapText(c, text, maxW) {
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (const w of words) { const test = cur ? cur + ' ' + w : w; if (c.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test; }
+  if (cur) lines.push(cur);
+  return lines;
+}
+function drawBubble(c, sx, sy, text, color = '#fffdf2') {
+  c.font = 'bold 13px "Cascadia Mono", Consolas, monospace';
+  const lines = wrapText(c, text, 230);
+  const w = Math.max(...lines.map((l) => c.measureText(l).width)) + 18, h = lines.length * 16 + 12;
+  let x = clamp(sx - w / 2, 6, innerWidth - w - 6), y = Math.max(cam.inset + 4, sy - h - 10);
+  c.fillStyle = 'rgba(0,0,0,.35)'; rr(c, x + 3, y + 4, w, h, 9); c.fill();
+  c.fillStyle = color; rr(c, x, y, w, h, 9); c.fill(); ink(c, 3);
+  c.beginPath(); c.moveTo(clamp(sx, x + 12, x + w - 12) - 7, y + h); c.lineTo(clamp(sx, x + 12, x + w - 12), y + h + 9); c.lineTo(clamp(sx, x + 12, x + w - 12) + 7, y + h); c.closePath();
+  c.fillStyle = color; c.fill(); ink(c, 3);
+  c.fillStyle = color; c.fillRect(clamp(sx, x + 12, x + w - 12) - 5, y + h - 3, 10, 4);
+  c.fillStyle = INK; c.textBaseline = 'top';
+  lines.forEach((l, i) => c.fillText(l, x + 9, y + 7 + i * 16));
+}
+function drawPops(c) {
+  const ps = toScreen(PLAYER.x, PLAYER.y - 60 * (PLAYER.look.scale || 1));
+  for (const p of V.pops) {
+    const k = p.age / p.life;
+    c.globalAlpha = Math.min(1, (1 - k) * 3);
+    if (p.big) drawPx(c, p.text, innerWidth / 2, cam.inset + innerHeight * 0.26 + (p.slot % 3) * 34 - k * 20, 3, p.color, 'center', INK);
+    else drawPx(c, p.text, ps.x + 80, ps.y + 40 - (p.slot % 7) * 19 - k * 4, 2, p.color, 'left', INK);
+  }
+  c.globalAlpha = 1;
+}
+
+/* =====================================================================
+   MAIN RENDER
+   ===================================================================== */
+function promptLabel(tg) {
+  if (!tg) return null;
+  if (tg.kind === 'npc') return tg.npc === S.approaching ? 'FACE THE MUSIC' : 'TALK: ' + tg.npc.name.split(' ')[0];
+  const o = tg.obj;
+  switch (o.type) {
+    case 'M': return !S.cases.length ? 'DESK: NO CASES' : S.time < S.dbDownUntil ? 'DATABASE DOWN...' : 'HOLD: WORK CASE';
+    case 'C': return S.time < (S.coffeeReady[o.id] || 0) ? 'COFFEE (BREWING)' : 'COFFEE';
+    case 'P': return 'PRINT';
+    case 'g': return minigameReady('pong') ? 'PLAY TABLE TENNIS' : 'TABLE TENNIS (RESTING)';
+    case 'T': case 'W': return S.event && S.event.def.type === 'meeting' ? 'JOIN MEETING' : 'LOOK';
+    default: return 'LOOK';
+  }
+}
+function render() {
+  const c = ctx, z = cam.zoom, dpr = cam.dpr;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.fillStyle = '#07060f'; c.fillRect(0, 0, cv.width, cv.height);
+  const sh = shakeOffset();
+  c.setTransform(dpr * z, 0, 0, dpr * z, (sh.x - cam.x * z) * dpr, (cam.inset + sh.y - cam.y * z) * dpr);
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  const x0 = Math.max(0, Math.floor(cam.x / T) - 1), x1 = Math.min(MAP_W - 1, Math.ceil((cam.x + cam.vw) / T) + 1);
+  const y0 = Math.max(0, Math.floor(cam.y / T) - 1), y1 = Math.min(MAP_H - 1, Math.ceil((cam.y + cam.vh) / T) + 2);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (GRID[ty][tx] !== '#') drawFloorTile(c, tx, ty);
+  drawZoneDecor(c);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (GRID[ty][tx] === '#') drawWallTile(c, tx, ty);
+  // meeting-room call: glowing floor
+  if (S.event && S.event.def.type === 'meeting') {
+    const m = ZONES.meeting;
+    c.fillStyle = `rgba(255,63,180,${0.12 + 0.1 * Math.sin(V.t * 6)})`; c.fillRect(m.x * T, m.y * T, m.w * T, m.h * T);
+  }
+  // y-sorted furniture, chairs and people
+  const list = [];
+  const inView = (o) => (o.x + o.w) * T >= cam.x - T && o.x * T <= cam.x + cam.vw + T && (o.y + o.h) * T >= cam.y - T && (o.y - 1) * T <= cam.y + cam.vh + T;
+  for (const o of OBJECTS) if (inView(o)) list.push({ y: (o.y + o.h) * T, f: () => drawObj(c, o, V.t) });
+  for (const o of CHAIRS) { const s = seatTile(o); list.push({ y: (s.ty + 0.5) * T, f: () => drawChair(c, o) }); }
+  for (const n of NPCS) list.push({ y: n.y + 0.5, f: () => drawPerson(c, n, V.t) });
+  if (S.mode !== 'gameover') list.push({ y: PLAYER.y + 0.6, f: () => drawPerson(c, PLAYER, V.t) });
+  list.sort((a, b) => a.y - b.y).forEach((d) => d.f());
+  // world markers
+  const nearDesk = Math.abs(PLAYER.tx - (MY_DESK.x + 0.5)) + Math.abs(PLAYER.ty - MY_DESK.y) <= 2.5;
+  if (S.cases.length && !nearDesk) {
+    const bx = (MY_DESK.x + 1) * T, by = MY_DESK.y * T - 34 + Math.sin(V.t * 5) * 3;
+    c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(bx - 7, by); c.lineTo(bx + 7, by); c.lineTo(bx, by + 9); c.closePath(); c.fill(); ink(c, 2);
+    drawPx(c, 'YOUR DESK', bx, by - 11, 1, '#ffd23f', 'center', INK);
+  }
+  if (S.event && S.event.def.type === 'meeting' && Math.sin(V.t * 8) > -0.3) drawPx(c, 'MEETING!', 31 * T, 7 * T + 8, 2, '#ff3fb4', 'center', INK);
+  for (const n of NPCS) {
+    if (n.exclaimUntil > V.t) { // Pokemon trainer "!"
+      const ex = n.x, ey = n.y - 70 * (n.look.scale || 1);
+      box(c, ex - 8, ey - 10, 16, 20, 4, '#ffffff', 2.5); drawPx(c, '!', ex, ey - 7, 2, '#e53935', 'center');
+    } else if (S.mode === 'playing' && Math.abs(n.tx - PLAYER.tx) + Math.abs(n.ty - PLAYER.ty) <= 3) {
+      drawPx(c, n.name.split(' ')[0], n.x, n.y - 66 * (n.look.scale || 1), 1, '#ffffff', 'center', INK);
+    }
+  }
+  if (V.clickMark && V.clickMark.until > V.t) { c.strokeStyle = '#ffd23f'; c.lineWidth = 2; const r = 4 + (1 - (V.clickMark.until - V.t) / 0.5) * 10; rr(c, V.clickMark.x - r, V.clickMark.y - r, r * 2, r * 2, 3); c.stroke(); }
+  drawParticles(c);
+
+  // ---- screen space ----
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const people = [...NPCS, PLAYER];
+  for (const e of people) {
+    if (!e.say || e.say.until < V.t) continue;
+    if (e === PLAYER && S.mode === 'gameover') continue;
+    const p = toScreen(e.x, e.y - 58 * (e.look.scale || 1));
+    drawBubble(c, p.x + sh.x, p.y + sh.y, e.say.text, e === PLAYER ? '#fffdf2' : '#e9f7ff');
+  }
+  drawPops(c);
+  if (S.mode === 'playing' && PLAYER.lockedUntil <= S.time) {
+    const label = promptLabel(S.target);
+    if (label) {
+      const p = toScreen(PLAYER.x, PLAYER.y + 6);
+      const txt = (UI.touch ? '' : '[E] ') + label, w = pxWidth(txt, 2) + 14;
+      c.fillStyle = 'rgba(16,13,40,.92)'; rr(c, p.x - w / 2, p.y, w, 22, 5); c.fill(); ink(c, 2, '#ffd23f');
+      drawPx(c, txt, p.x, p.y + 4, 2, '#ffd23f', 'center');
+    }
+  }
+  if (S.mode === 'playing' && anyDanger()) {
+    const a = 0.2 + 0.16 * Math.sin(V.t * 8);
+    const g = c.createRadialGradient(innerWidth / 2, innerHeight / 2, Math.min(innerWidth, innerHeight) * 0.35, innerWidth / 2, innerHeight / 2, Math.max(innerWidth, innerHeight) * 0.75);
+    g.addColorStop(0, 'rgba(255,0,40,0)'); g.addColorStop(1, `rgba(255,0,40,${a})`);
+    c.fillStyle = g; c.fillRect(0, 0, innerWidth, innerHeight);
+  }
+}
+
+/* Portrait canvases for overlays + dialogue box */
+const portrait = document.createElement('canvas');
+portrait.className = 'portrait'; portrait.width = 440; portrait.height = 380;
+function renderPortrait() {
+  const c = portrait.getContext('2d');
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, portrait.width, portrait.height);
+  c.setTransform(2, 0, 0, 2, 0, 0); c.lineJoin = 'round'; c.lineCap = 'round';
+  c.fillStyle = 'rgba(41,230,255,.1)'; ellipse(c, 110, 120, 100, 80); c.fill();
+  const base = { look: PLAYER.look, moving: false, moveT: 0, moveDur: 1, foot: 0, seed: 0 };
+  if (S.mode === 'gameover') {
+    c.save(); c.translate(150, 130); c.rotate(-Math.PI / 2);
+    if (S.deathCause === 'overload') c.translate(rand(-2, 2), rand(-2, 2));
+    drawPerson(c, base, V.t, { x: 0, y: 0, scale: 2.6, mood: 'dead', dir: 'down', noShadow: true });
+    c.restore();
+    c.save(); c.shadowColor = '#ffe066'; c.shadowBlur = 12; c.strokeStyle = '#ffe066'; c.lineWidth = 4;
+    ellipse(c, 45, 92 + Math.sin(V.t * 2.5) * 4, 26, 7); c.stroke(); c.restore();
+  } else {
+    const mood = S.mode === 'paused' ? 'exhausted' : (V.t % 5 < 1.5 ? 'happy' : 'normal');
+    drawPerson(c, base, V.t, { x: 110, y: 176, scale: 3.1, mood, dir: 'down', wave: S.mode === 'title' });
+  }
+}
+function drawDialogPortrait(n, mood) {
+  const c = $('#dlgPortrait').getContext('2d');
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 192, 192);
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  drawPerson(c, { look: n.look, moving: false, moveT: 0, moveDur: 1, foot: 0, seed: 0 }, 0.5, { x: 96, y: 262, scale: 4.2 / (n.look.scale || 1), mood, dir: 'down', noShadow: true });
+}
+
+/* =====================================================================
+   FX: screen shake + flash
+   ===================================================================== */
+const FX = {
+  shake(kind = 's') {
+    if (SIM) return;
+    V.shakeT = kind === 'l' ? 0.5 : 0.25; V.shakeMag = kind === 'l' ? 9 : 4;
+    if (kind === 'l') { const h = $('#hud'); h.classList.remove('shake-l'); void h.offsetWidth; h.classList.add('shake-l'); }
+  },
+  flash(color) {
+    if (SIM) return;
+    const f = $('#flash'); f.style.background = color; f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+  },
+};
+
+/* Visual-only updates (run every frame, even while paused) */
+function updateVisuals(dt) {
+  V.t += dt;
+  if (V.shakeT > 0) V.shakeT -= dt;
+  updateParticles(dt);
+  if (S.mode !== 'playing') return;
+  const mood = moodOf(PLAYER);
+  if (mood === 'exhausted' && Math.random() < dt * 1.2) emit('z', PLAYER.x + 14, PLAYER.y - 54, { vx: 10, vy: -18, life: 1.4 });
+  if (anyDanger()) {
+    V.dangerTickT -= dt;
+    if (V.dangerTickT <= 0) { sfx.danger(); V.dangerTickT = 1; }
+    if (V.t - V.lastSayAt > 8 && !S.working) {
+      const k = STAT_KEYS.reduce((a, b) => (S.stats[a] < S.stats[b] ? a : b));
+      say(pick(CONTENT.lines.danger[k]));
+    }
+  } else V.dangerTickT = 0;
+}
+
+/* =====================================================================
+   MINI-GAMES: colleague quizzes + table tennis (the office is paused while you play)
+   ===================================================================== */
+const MG = { active: null };
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function minigameReady(id) { return S.time >= (S.mgReady[id] || 0); }
+function minigameOf(npc) { return Object.keys(CONTENT.minigames).find((id) => CONTENT.minigames[id].host === npc.id) || null; }
+
+function startMinigame(id, npc) {
+  const def = CONTENT.minigames[id];
+  S.mgReady[id] = S.time + CONFIG.minigames.cooldown;
+  S.mode = 'minigame';
+  if (npc) { npc.state = 'talk'; npc.path = []; }
+  MG.active = id === 'pong' ? new PongGame(def, npc) : new QuizGame(id, def, npc);
+  UI.showMinigame(MG.active);
+  sfx.start();
+}
+function endMinigame(forfeit = false) {
+  const g = MG.active;
+  if (!g) return;
+  MG.active = null;
+  S.mode = 'playing';
+  UI.hideMinigame();
+  if (g.npc) { g.npc.state = 'idle'; g.npc.waitT = 2.5; }
+  if (forfeit) { say('Maybe later. The cases are staring at me.'); return; }
+  applyEffects(g.reward);
+  if (g.npc && g.resultLine) npcSay(g.npc, g.resultLine.replace(/^[^:]+: /, '').replace(/^"|"$/g, ''), 3.5);
+  else if (g.resultLine) say(g.resultLine, 3.5);
+  V.happyUntil = V.t + 1.5;
+  checkDeath();
+}
+
+/* ---- Quiz engine: Code It! / Abstract Blitz / Serious or Not? / Spot the Error ---- */
+class QuizGame {
+  constructor(id, def, npc) {
+    this.kind = 'quiz'; this.id = id; this.def = def; this.npc = npc;
+    const n = Math.min(CONFIG.minigames.quizRounds, def.items.length);
+    this.items = shuffle([...def.items]).slice(0, n).map((it) => {
+      const opts = it.options.map((text, i) => ({ text, ok: i === it.answer }));
+      return { q: it.q, opts: opts.length > 2 ? shuffle(opts) : opts };   // yes/no games keep a fixed order
+    });
+    this.round = -1; this.correct = 0; this.state = 'intro'; this.t = 0; this.picked = null;
+  }
+  get item() { return this.items[this.round]; }
+  update(dt) {
+    this.t += dt;
+    if (this.state === 'intro' && this.t > 1.6) this.next();
+    else if (this.state === 'question') { this.timeLeft -= dt; if (this.timeLeft <= 0) this.answer(-1); }
+    else if (this.state === 'feedback' && this.t > 0.9) this.next();
+  }
+  next() {
+    this.round++; this.t = 0; this.picked = null;
+    if (this.round >= this.items.length) return this.finish();
+    this.state = 'question'; this.timeLeft = CONFIG.minigames.quizSeconds;
+    UI.renderMinigame(this);
+  }
+  answer(i) {
+    if (this.state !== 'question') return;
+    this.picked = i; this.state = 'feedback'; this.t = 0;
+    const ok = i >= 0 && this.item.opts[i] && this.item.opts[i].ok;
+    if (ok) { this.correct++; sfx.stepDone(); } else sfx.denied();
+    UI.renderMinigame(this);
+  }
+  finish() {
+    const R = CONFIG.minigames.quizReward, n = this.items.length, frac = this.correct / n;
+    this.reward = { sanity: R.sanityBase + R.sanityPerCorrect * this.correct, compliance: R.compliancePerCorrect * this.correct };
+    this.resultLine = this.def.results[frac >= 1 ? 0 : frac >= 0.6 ? 1 : 2];
+    this.state = 'result'; this.t = 0;
+    frac >= 0.6 ? sfx.submit() : sfx.meh();
+    UI.renderMinigame(this);
+  }
+  key(k) {
+    if (this.state === 'result') { if (this.t > 0.4 && ['e', ' ', 'enter'].includes(k)) endMinigame(); return; }
+    if (this.state === 'intro' && ['e', ' ', 'enter'].includes(k)) return this.next();
+    const i = ['1', '2', '3', '4'].indexOf(k);
+    if (i >= 0 && this.state === 'question' && i < this.item.opts.length) this.answer(i);
+  }
+}
+
+/* ---- Table tennis (Pong) ---- */
+class PongGame {
+  constructor(def, npc) {
+    this.kind = 'pong'; this.def = def; this.npc = npc;
+    this.W = 480; this.H = 270; this.PH = 54; this.PW = 10;
+    this.py = this.H / 2; this.cy = this.H / 2; this.pointerY = null;
+    this.score = [0, 0]; this.state = 'intro'; this.t = 0; this.cpuErr = 0; this.ball = null;
+  }
+  serve(dir) {
+    const C = CONFIG.minigames.pong, a = rand(-0.5, 0.5);
+    this.ball = { x: this.W / 2, y: this.H / 2, vx: Math.cos(a) * C.ballSpeed * dir, vy: Math.sin(a) * C.ballSpeed, r: 6 };
+    this.cpuErr = rand(-18, 18);
+  }
+  update(dt) {
+    const C = CONFIG.minigames.pong;
+    this.t += dt;
+    if (this.state === 'intro') { if (this.t > 1.6) { this.state = 'play'; this.serve(Math.random() < 0.5 ? 1 : -1); } return; }
+    if (this.state === 'point') { if (this.t > 0.9) { if (Math.max(...this.score) >= C.pointsToWin) this.finish(); else { this.state = 'play'; this.serve(this.lastWinner === 0 ? 1 : -1); } } return; }
+    if (this.state !== 'play') return;
+    // player paddle: keys / joystick / pointer drag
+    const d = heldDir(), sp = C.paddleSpeed * dt, half = this.PH / 2 + 4;
+    if (d === 'up') this.py -= sp;
+    if (d === 'down') this.py += sp;
+    if (this.pointerY != null) this.py += clamp(this.pointerY - this.py, -sp * 1.4, sp * 1.4);
+    this.py = clamp(this.py, half, this.H - half);
+    // CPU paddle: tracks the ball with a little human error
+    const b = this.ball;
+    const target = b.vx > 0 ? b.y + this.cpuErr : this.H / 2;
+    this.cy += clamp(target - this.cy, -C.cpuSpeed * dt, C.cpuSpeed * dt);
+    this.cy = clamp(this.cy, half, this.H - half);
+    // ball
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.y < b.r) { b.y = b.r; b.vy = Math.abs(b.vy); sfx.tick(); }
+    if (b.y > this.H - b.r) { b.y = this.H - b.r; b.vy = -Math.abs(b.vy); sfx.tick(); }
+    const hit = (px, py, side) => {
+      if (Math.abs(b.x - px) > this.PW / 2 + b.r || Math.abs(b.y - py) > this.PH / 2 + b.r) return false;
+      const speed = Math.min(C.maxBallSpeed, Math.hypot(b.vx, b.vy) * C.speedUpPerHit);
+      const off = clamp((b.y - py) / (this.PH / 2), -1, 1);
+      const ang = off * 0.9;
+      b.vx = Math.cos(ang) * speed * side; b.vy = Math.sin(ang) * speed;
+      b.x = px + side * (this.PW / 2 + b.r + 1);
+      sfx.blip();
+      return true;
+    };
+    if (b.vx < 0) hit(24, this.py, 1);
+    else if (hit(this.W - 24, this.cy, -1)) this.cpuErr = rand(-30, 30) * (1 + Math.hypot(b.vx, b.vy) / 400);
+    if (b.x < -20 || b.x > this.W + 20) {
+      const winner = b.x > this.W ? 0 : 1;
+      this.score[winner]++; this.lastWinner = winner;
+      this.state = 'point'; this.t = 0;
+      winner === 0 ? sfx.stepDone() : sfx.meh();
+      UI.renderMinigame(this);
+    }
+  }
+  finish() {
+    const C = CONFIG.minigames.pong, won = this.score[0] > this.score[1];
+    this.reward = won ? C.win : C.lose;
+    this.resultLine = pick(won ? this.def.win : this.def.lose);
+    this.won = won; this.state = 'result'; this.t = 0;
+    won ? sfx.submit() : sfx.meh();
+    UI.renderMinigame(this);
+  }
+  key(k) { if (this.state === 'result' && this.t > 0.4 && ['e', ' ', 'enter'].includes(k)) endMinigame(); }
+  render(c) {
+    const W = this.W, H = this.H;
+    c.fillStyle = '#1f7a4d'; c.fillRect(0, 0, W, H);
+    c.strokeStyle = '#ffffff'; c.lineWidth = 3; c.strokeRect(4, 4, W - 8, H - 8);
+    c.setLineDash([8, 8]); c.beginPath(); c.moveTo(W / 2, 6); c.lineTo(W / 2, H - 6); c.stroke(); c.setLineDash([]);
+    c.globalAlpha = 0.35; c.beginPath(); c.moveTo(6, H / 2); c.lineTo(W - 6, H / 2); c.lineWidth = 1.5; c.stroke(); c.globalAlpha = 1;
+    drawPx(c, String(this.score[0]), W / 2 - 40, 16, 4, '#ffffff', 'center', '#0d3d26');
+    drawPx(c, String(this.score[1]), W / 2 + 40, 16, 4, '#ffffff', 'center', '#0d3d26');
+    const oppColor = this.npc ? (this.npc.look.jacket || this.npc.look.shirt) : '#ff3fb4';
+    for (const [x, y, col] of [[24, this.py, PLAYER.look.jacket], [W - 24, this.cy, oppColor]]) {
+      c.fillStyle = col; rr(c, x - this.PW / 2, y - this.PH / 2, this.PW, this.PH, 4); c.fill(); ink(c, 2.5);
+    }
+    if (this.ball && this.state === 'play') {
+      c.fillStyle = 'rgba(0,0,0,.25)'; ellipse(c, this.ball.x + 3, this.ball.y + 4, 6, 4); c.fill();
+      c.fillStyle = '#fff6d8'; circle(c, this.ball.x, this.ball.y, this.ball.r); c.fill(); ink(c, 2);
+    }
+    drawPx(c, 'CASEY', 24, H - 16, 1, '#ffffff', 'left');
+    drawPx(c, this.npc ? this.npc.name.split(' ')[0] : 'CPU', W - 24, H - 16, 1, '#ffffff', 'right');
+    if (this.state === 'intro') drawPx(c, 'FIRST TO ' + CONFIG.minigames.pong.pointsToWin + '!', W / 2, H / 2 - 10, 3, '#ffd23f', 'center', INK);
+    if (this.state === 'point') drawPx(c, this.lastWinner === 0 ? 'POINT CASEY!' : 'POINT ' + (this.npc ? this.npc.name.split(' ')[0] : 'CPU') + '!', W / 2, H / 2 - 10, 3, '#ffd23f', 'center', INK);
+  }
+}
+
+/* =====================================================================
+   UI: HUD, case queue, dialogue box, alerts, overlays
+   ===================================================================== */
+function fxHint(fx) {
+  const out = [];
+  for (const [k, v] of Object.entries(fx || {})) {
+    if (!v) continue;
+    if (k in CONFIG.stats) {
+      const n = Math.abs(v) >= 12 ? 2 : 1;
+      out.push(`<span class="${v > 0 ? 'up' : 'down'}">${(v > 0 ? '▲' : '▼').repeat(n)}${CONFIG.stats[k].short}</span>`);
+    } else if (k === 'cases' || k === 'favor') out.push(`<span class="down">+${v} CASE</span>`);
+    else if (k === 'serious') out.push(`<span class="down">+SERIOUS</span>`);
+    else if (k === 'removeCase') out.push(`<span class="up">-${v} CASE</span>`);
+    else if (k === 'dbDown') out.push(`<span class="down">DB ${v}s</span>`);
+  }
+  return out.join(' ');
+}
+function el(tag, cls, html) { const e = document.createElement(tag); e.className = cls; e.innerHTML = html; return e; }
+
+const UI = {
+  stat: {}, touch: false, casesVersion: -1, caseEls: new Map(), tw: null,
+  init() {
+    const panel = $('#statsPanel');
+    for (const k of STAT_KEYS) {
+      const c = CONFIG.stats[k];
+      const e = document.createElement('div');
+      e.className = 'stat'; e.style.setProperty('--c', c.color);
+      e.innerHTML = `<div class="stat-head"><span class="stat-name">${c.icon} ${c.label}</span><span class="stat-warn">LOW!</span><span class="stat-val">0</span></div>
+        <div class="bar"><div class="fill"></div><div class="zone low" style="width:${c.danger}%"></div>${k === 'caffeine' ? `<div class="zone high" style="width:${100 - CONFIG.jitter.threshold}%"></div>` : ''}<div class="segs"></div></div>`;
+      panel.insertBefore(e, $('#status'));
+      this.stat[k] = { el: e, fill: e.querySelector('.fill'), val: e.querySelector('.stat-val'), warn: e.querySelector('.stat-warn'), last: -1, flashT: 0 };
+    }
+    $('#muteBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleMute(); });
+    $('#pauseBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.init(); S.mode === 'paused' ? resumeGame() : pauseGame(); });
+    this.syncMute();
+    if (window.matchMedia && matchMedia('(pointer: coarse)').matches) this.enableTouch();
+  },
+  enableTouch() { if (this.touch) return; this.touch = true; $('#joy').hidden = false; $('#actBtn').hidden = false; },
+  syncMute() { $('#muteBtn').textContent = Sound.muted ? '🔇' : '🔊'; },
+  bump(k, v) {
+    if (SIM) return;
+    const s = this.stat[k]; s.el.classList.remove('up', 'down'); s.el.classList.add(v > 0 ? 'up' : 'down'); s.flashT = 0.35;
+  },
+
+  sync(dt) {
+    const C = CONFIG;
+    for (const k of STAT_KEYS) {
+      const s = this.stat[k], v = Math.ceil(S.stats[k]);
+      if (v !== s.last) { s.fill.style.width = v + '%'; s.val.textContent = v; s.last = v; }
+      const jitter = k === 'caffeine' && S.stats.caffeine > C.jitter.threshold;
+      s.el.classList.toggle('danger', S.mode !== 'title' && (S.stats[k] < C.stats[k].danger || jitter));
+      s.warn.textContent = jitter ? 'JITTERY!' : 'LOW!';
+      if (s.flashT > 0) { s.flashT -= dt; if (s.flashT <= 0) s.el.classList.remove('up', 'down'); }
+    }
+    // status line
+    let txt = '', cls = '';
+    if (S.overloadT > 0.05) { txt = `⚠ OVERLOAD ${Math.max(0, C.jitter.overloadSeconds - S.overloadT).toFixed(1)}s`; cls = 'bad'; }
+    else if (S.stats.caffeine > C.jitter.threshold) { txt = '☕ JITTERY: SANITY DRAINING'; cls = 'warn'; }
+    else if (S.time < S.dbDownUntil) { txt = `💾 DATABASE DOWN ${Math.ceil(S.dbDownUntil - S.time)}s`; cls = 'warn'; }
+    else if (playerZone() === 'break') { txt = S.breakT > C.breakArea.maxSeconds * 0.7 ? '🛋 BREAK: PAT IS WATCHING...' : '🛋 BREAK: +SANITY'; cls = S.breakT > C.breakArea.maxSeconds * 0.7 ? 'warn' : 'good'; }
+    else if (inRegenZone()) { txt = '⚡ IN THE ZONE: +NRG REGEN'; cls = 'good'; }
+    else if (S.stats.caffeine < C.energyRegen.caffeineMin) txt = '☕ LOW CAFFEINE: NO REGEN';
+    const st = $('#status');
+    if (st.textContent !== txt) st.textContent = txt;
+    st.className = cls;
+    // info bar
+    const spd = C.secondsPerDay, frac = S.mode === 'title' ? 0 : (S.time % spd) / spd;
+    const mins = Math.floor((C.clock.startHour * 60 + frac * (C.clock.endHour - C.clock.startHour) * 60) / 5) * 5;
+    $('#dayLabel').textContent = `DAY ${S.day}`;
+    $('#clock').textContent = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+    $('#scoreLabel').textContent = `${S.score} PTS`;
+    this.syncCases();
+    this.syncWorkBar();
+    if (S.event && !$('#eventBox').hidden) {
+      $('#evTime').textContent = Math.max(0, S.event.timeLeft).toFixed(1);
+      $('#evBar').style.width = (100 * Math.max(0, S.event.timeLeft) / S.event.total) + '%';
+    }
+    if (MG.active && MG.active.kind === 'quiz' && MG.active.state === 'question') {
+      const bar = $('#qBar'); if (bar) bar.style.width = (100 * MG.active.timeLeft / CONFIG.minigames.quizSeconds) + '%';
+    }
+    if (this.touch) {
+      const label = S.mode === 'minigame' ? 'OK' : S.mode === 'playing' ? (promptLabel(S.target) || 'ACTION') : S.mode === 'title' || S.mode === 'gameover' ? 'START' : 'OK';
+      const btn = $('#actBtn'); if (btn.textContent !== label) btn.textContent = label;
+    }
+    // typewriter dialogue text
+    if (this.tw && this.tw.n < this.tw.full.length) {
+      const before = Math.floor(this.tw.n);
+      this.tw.n = Math.min(this.tw.full.length, this.tw.n + dt * 70);
+      if (Math.floor(this.tw.n) > before && before % 3 === 0) sfx.blip();
+      $('#dlgText').textContent = this.tw.full.slice(0, Math.floor(this.tw.n));
+    } else if (this.tw) $('#dlgText').textContent = this.tw.full + (Math.sin(V.t * 8) > 0 ? ' ▼' : '');
+  },
+  syncCases() {
+    const list = $('#caseList');
+    const act = activeCase();
+    if (this.casesVersion !== S.casesVersion) {
+      this.casesVersion = S.casesVersion;
+      list.innerHTML = ''; this.caseEls.clear();
+      const sorted = [...S.cases].sort((a, b) => (a.late - b.late) || (a.deadline - b.deadline));
+      if (!sorted.length) list.appendChild(el('div', 'empty', 'Inbox zero. Enjoy it while it lasts.'));
+      for (const c of sorted) {
+        const e = el('div', 'case' + (c.serious ? ' serious' : ''), `
+          <div class="c1"><span class="cid">${c.code}</span><span class="tag">${c.serious ? '7-DAY' : '15-DAY'}</span><span class="dl"></span></div>
+          <div class="c2"></div>
+          <div class="c3"><div class="pips">${STEPS.map((s, i) => `<div class="pip ${i < c.step ? 'done' : i === c.step ? 'cur' : ''}" title="${s.label}"></div>`).join('')}</div><div class="dbar"><div></div></div></div>`);
+        e.querySelector('.c2').textContent = `${c.source}: ${c.title}`;
+        e.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); S.activeId = c.id; S.casesVersion++; sfx.blip(); });
+        list.appendChild(e);
+        this.caseEls.set(c.id, { e, dl: e.querySelector('.dl'), bar: e.querySelector('.dbar>div') });
+      }
+      $('#caseCount').textContent = S.cases.length;
+    }
+    for (const c of S.cases) {
+      const r = this.caseEls.get(c.id); if (!r) continue;
+      const left = Math.max(0, c.deadline - S.time), frac = left / c.total;
+      r.dl.textContent = c.late ? 'LATE!' : `D-${Math.ceil(frac * (c.serious ? 7 : 15))}`;
+      r.bar.style.width = (c.late ? 100 : frac * 100) + '%';
+      r.e.classList.toggle('late', c.late);
+      r.e.classList.toggle('urgent', !c.late && frac < 0.3);
+      r.e.classList.toggle('active', c === act);
+    }
+  },
+  syncWorkBar() {
+    const wb = $('#workBar');
+    let text = null, frac = 0;
+    if (S.mode === 'playing' || S.mode === 'paused') {
+      if (PLAYER.lockedUntil > S.time) {
+        const dur = PLAYER.lockedUntil - PLAYER.lockStart;
+        frac = 1 - (PLAYER.lockedUntil - S.time) / dur;
+        text = PLAYER.lockReason === 'coffee' ? '☕ BREWING COFFEE...' : `📊 IN MEETING: ${S.meeting ? S.meeting.def.id === 'signal' ? 'SIGNAL DETECTION' : 'SOP TRAINING' : ''}`;
+      } else if (S.target && S.target.obj === MY_DESK && S.cases.length) {
+        const c = activeCase();
+        if (S.time < S.dbDownUntil) { text = `💾 DATABASE DOWN (${Math.ceil(S.dbDownUntil - S.time)}s)`; frac = 0; }
+        else { text = `${c.code} · ${STEPS[c.step].label} (${c.step + 1}/${STEPS.length})${S.working ? '' : ' · HOLD E'}`; frac = c.progress / STEPS[c.step].seconds; }
+      }
+    }
+    wb.hidden = !text;
+    if (text) { if ($('#wbText').textContent !== text) $('#wbText').textContent = text; $('#wbFill').style.width = (clamp(frac, 0, 1) * 100) + '%'; }
+  },
+
+  showDialog(kind, n, text, choices) {
+    const box = $('#dialog');
+    box.className = kind === 'talk' ? '' : kind;
+    $('#dlgName').textContent = (kind === 'director' ? '⚠ ' : kind === 'scold' ? '⚠ ' : '') + n.name.toUpperCase();
+    this.tw = { full: text, n: 0 };
+    $('#dlgText').textContent = '';
+    const list = $('#dlgChoices'); list.innerHTML = '';
+    choices.forEach((ch, i) => {
+      const b = document.createElement('button');
+      b.className = 'choice'; b.tabIndex = -1;
+      b.innerHTML = `<span class="k">${i + 1}</span><span class="t"></span><span class="h">${fxHint(ch.effects)}</span>`;
+      b.querySelector('.t').textContent = ch.text;
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); chooseAny(i); });
+      list.appendChild(b);
+    });
+    drawDialogPortrait(n, kind === 'talk' ? 'happy' : kind === 'scold' ? 'stressed' : 'normal');
+    box.hidden = false;
+  },
+  hideDialog() { $('#dialog').hidden = true; this.tw = null; },
+
+  showEvent(def) {
+    const meeting = def.type === 'meeting';
+    $('#eventBox').className = meeting ? 'meeting' : '';
+    $('#evTitle').textContent = def.title;
+    const box = $('#evChoices'); box.innerHTML = '';
+    if (!meeting) def.choices.forEach((ch, i) => {
+      const b = document.createElement('button');
+      b.className = 'choice'; b.tabIndex = -1;
+      b.innerHTML = `<span class="k">${i + 1}</span><span class="t"></span><span class="h">${fxHint(ch.effects)}</span>`;
+      b.querySelector('.t').textContent = ch.text;
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); resolveEvent(i); });
+      box.appendChild(b);
+    });
+    $('#evIgnore').innerHTML = meeting ? `WALK INTO THE MEETING ROOM · SKIP IT: ${fxHint(def.skip)}` : `IGNORE IT: ${fxHint(def.ignore)}`;
+    $('#eventBox').hidden = false;
+  },
+  // ---- mini-games ----
+  showMinigame(g) { $('#mg').hidden = false; $('#mgTitle').textContent = g.def.title; $('#mgBody').innerHTML = ''; this.renderMinigame(g); },
+  hideMinigame() { $('#mg').hidden = true; $('#mgBody').innerHTML = ''; },
+  renderMinigame(g) {
+    const body = $('#mgBody'), info = $('#mgInfo'), foot = $('#mgFoot');
+    const opp = g.npc ? g.npc.name.toUpperCase() : '';
+    if (g.state === 'result') {
+      const title = g.kind === 'pong' ? (g.won ? 'YOU WIN!' : 'GOOD GAME!') : `${g.correct}/${g.items.length} CORRECT`;
+      const good = g.kind === 'pong' ? g.won : g.correct / g.items.length >= 0.6;
+      body.innerHTML = '';
+      body.append(
+        pxCanvas(title, 5, good ? '#39ff88' : '#ffd23f', '#000', good ? 'glow-cyan' : 'glow-yellow'),
+        el('div', 'mg-line', ''), el('div', 'mg-reward', 'REWARD: ' + fxHint(g.reward)),
+        this.startButton('PRESS E TO CONTINUE', () => { if (MG.active && MG.active.t > 0.4) endMinigame(); }));
+      body.querySelector('.mg-line').textContent = g.resultLine;
+      info.textContent = g.kind === 'pong' ? `${g.score[0]} - ${g.score[1]}` : '';
+      foot.textContent = '';
+      return;
+    }
+    if (g.kind === 'pong') {
+      info.textContent = opp ? 'VS ' + opp : '';
+      foot.textContent = 'W/S or ARROWS (or drag on the table) to move · ESC to quit';
+      if (!$('#mgCanvas')) {
+        body.innerHTML = '<canvas id="mgCanvas" width="960" height="540"></canvas>';
+        const cvs = $('#mgCanvas');
+        const setY = (e) => { const r = cvs.getBoundingClientRect(); if (MG.active && MG.active.kind === 'pong') MG.active.pointerY = (e.clientY - r.top) / r.height * MG.active.H; };
+        cvs.addEventListener('pointerdown', (e) => { e.preventDefault(); cvs.setPointerCapture(e.pointerId); setY(e); });
+        cvs.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'mouse') setY(e); });
+        cvs.addEventListener('pointerleave', () => { if (MG.active) MG.active.pointerY = null; });
+      }
+      return;
+    }
+    // quiz
+    foot.textContent = '1-4 or tap to answer · ESC to quit';
+    if (g.state === 'intro') {
+      info.textContent = opp;
+      body.innerHTML = '';
+      body.append(el('div', 'mg-intro', ''), el('div', 'mg-ready blink', 'GET READY...'));
+      body.querySelector('.mg-intro').textContent = g.def.intro;
+      return;
+    }
+    info.textContent = `ROUND ${g.round + 1}/${g.items.length} · ${g.correct} RIGHT`;
+    const it = g.item;
+    body.innerHTML = '';
+    body.append(el('div', 'q-prompt', ''), el('div', 'q-text', ''));
+    body.querySelector('.q-prompt').textContent = g.def.prompt;
+    body.querySelector('.q-text').textContent = it.q;
+    if (!it.q) body.querySelector('.q-text').remove();
+    const opts = el('div', 'q-opts' + (it.opts.length === 2 ? ' two' : ''), '');
+    it.opts.forEach((o, i) => {
+      const b = document.createElement('button');
+      b.className = 'choice'; b.tabIndex = -1;
+      if (g.state === 'feedback') { if (o.ok) b.classList.add('right'); else if (i === g.picked) b.classList.add('wrong'); }
+      b.innerHTML = `<span class="k">${i + 1}</span><span class="t"></span>`;
+      b.querySelector('.t').textContent = o.text;
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (MG.active) MG.active.answer(i); });
+      opts.appendChild(b);
+    });
+    body.append(opts, el('div', 'q-timer', '<div id="qBar"></div>'));
+    if (g.state === 'feedback') {
+      const ok = g.picked >= 0 && it.opts[g.picked].ok;
+      body.append(el('div', 'q-feedback ' + (ok ? 'up' : 'down'), g.picked < 0 ? 'TIME IS UP!' : ok ? 'CORRECT!' : 'NOPE!'));
+    }
+  },
+  pressChoice(i) { const b = $('#evChoices').children[i]; if (b) b.classList.add('pressed'); },
+  hideEvent() { $('#eventBox').hidden = true; },
+
+  overlay(kind, nodes) {
+    const ov = $('#overlay'), inner = $('#ovInner');
+    inner.innerHTML = ''; nodes.forEach((n) => n && inner.appendChild(n));
+    ov.dataset.kind = kind; ov.hidden = false; ov.scrollTop = 0;
+  },
+  hideOverlay() { $('#overlay').hidden = true; },
+  startButton(text, onPress) {
+    const b = document.createElement('button');
+    b.className = 'startBtn'; b.tabIndex = -1;
+    b.appendChild(pxCanvas(text, 3, '#ffd23f', '#6b4a00', 'blink glow-yellow'));
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); onPress(); });
+    return b;
+  },
+  showTitle() {
+    this.overlay('title', [
+      pxCanvas(['DRUG SAFETY'], 7, '#29e6ff', '#0b3a66', 'glow-cyan'),
+      pxCanvas(['SIMULATOR'], 7, '#ffd23f', '#6b4a00', 'glow-yellow'),
+      el('div', 'ov-sub', CONTENT.subtitle),
+      portrait,
+      el('div', 'ov-hi', 'STARRING CASE-CLOSED CASEY'),
+      this.startButton('INSERT COFFEE TO START', () => startGame()),
+      el('div', 'ov-hi', `HI-SCORE ${S.hi.score} PTS · ${(S.hi.days || 0).toFixed(1)} DAYS · ${S.hi.cases || 0} CASES`),
+      el('div', 'ov-help', '<b>WASD/ARROWS</b> walk (tap = turn) · <b>E/SPACE</b> talk/use · <b>HOLD E</b> at your desk to work a case<br><b>CLICK/TAP</b> to walk there · <b>1-4</b> answer · <b>P</b> pause · <b>M</b> mute'),
+      el('div', 'ov-foot', CONTENT.footer),
+    ]);
+  },
+  showPause() {
+    this.overlay('pause', [
+      pxCanvas('PAUSED', 7, '#29e6ff', '#0b3a66', 'glow-cyan'),
+      el('div', 'ov-sub', 'THIS IS NOW AN UNDOCUMENTED BREAK'),
+      portrait,
+      this.startButton('PRESS START', () => resumeGame()),
+      el('div', 'ov-help', '<b>P / SPACE</b> resume · <b>M</b> mute'),
+    ]);
+  },
+  showGameOver() {
+    const d = CONTENT.deaths[S.deathCause] || CONTENT.deaths.energy;
+    const long = d.title.length > 18;
+    const days = S.time / CONFIG.secondsPerDay;
+    this.overlay('gameover', [
+      pxCanvas('GAME OVER', 3, '#ff3b3b', '#4a0010', 'glow-red'),
+      pxCanvas(wrapWords(d.title, long ? 18 : 14), long ? 4 : 6, d.color, '#000', 'glow-' + d.glow),
+      portrait,
+      el('div', 'ov-text', d.text),
+      el('div', 'ov-score', `SURVIVED ${(Math.floor(days * 10) / 10).toFixed(1)} WORKING DAYS · ${S.onTime} CASES ON TIME<br>SCORE ${S.score}`),
+      S.newHi ? el('div', 'ov-new', '★ NEW HIGH SCORE! ★') : el('div', 'ov-hi', `HIGH SCORE ${S.hi.score}`),
+      this.startButton('PRESS START', () => { if (canRestart()) startGame(); }),
+    ]);
+    if (S.newHi) sfx.hiscore();
+  },
+};
+function chooseAny(i) {
+  if (S.mode === 'dialog') chooseDialog(i);
+  else if (S.mode === 'scene') chooseScene(i);
+  else if (S.event) resolveEvent(i);
+}
+function toggleMute() { Sound.init(); Sound.setMuted(!Sound.muted); UI.syncMute(); }
+
+/* =====================================================================
+   INPUT: keyboard, mouse/touch tap-to-move, on-screen joystick
+   ===================================================================== */
+const KEY_DIR = { arrowup: 'up', w: 'up', arrowdown: 'down', s: 'down', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right' };
+document.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  if (S.mode === 'title' || S.mode === 'gameover') {
+    if ((k === ' ' || k === 'enter') && !e.repeat) { if (S.mode === 'title' || canRestart()) startGame(); }
+    if (k === 'm') toggleMute();
+    return;
+  }
+  if (S.mode === 'paused') { if ([' ', 'enter', 'p', 'escape'].includes(k) && !e.repeat) resumeGame(); else if (k === 'm') toggleMute(); return; }
+  if (S.mode === 'minigame') {
+    if (k === 'escape') return endMinigame(true);
+    if (k === 'p') return pauseGame();
+    if (k === 'm') return toggleMute();
+    const dm = KEY_DIR[k]; if (dm && !input.keys.includes(dm)) input.keys.push(dm);
+    if (MG.active && !e.repeat) MG.active.key(k);
+    return;
+  }
+  if (k === 'p' || k === 'escape') return pauseGame();
+  if (k === 'm') return toggleMute();
+  if (k === '1' || k === '2' || k === '3' || k === '4') return chooseAny(Number(k) - 1);
+  if (k === 'e' || k === ' ' || k === 'enter') {
+    if (UI.tw && UI.tw.n < UI.tw.full.length) { UI.tw.n = UI.tw.full.length; return; }
+    if (!e.repeat && S.mode === 'playing') input.actionPressed = true;
+    input.actionHeld = true;
+    return;
+  }
+  const d = KEY_DIR[k];
+  if (d && !input.keys.includes(d)) { input.keys.push(d); input.tap = d; }
+});
+document.addEventListener('keyup', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'e' || k === ' ' || k === 'enter') input.actionHeld = false;
+  const d = KEY_DIR[k];
+  if (d) input.keys = input.keys.filter((x) => x !== d);
+});
+window.addEventListener('blur', () => { input.keys = []; input.actionHeld = false; input.touchHeld = false; input.mouseWork = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// click / tap to move (and to use things)
+cv.addEventListener('pointerdown', (e) => {
+  Sound.init();
+  if (e.pointerType === 'touch') UI.enableTouch();
+  if (S.mode !== 'playing') return;
+  const w = toWorld(e.clientX, e.clientY);
+  const tx = Math.floor(w.x / T), ty = Math.floor(w.y / T);
+  V.clickMark = { x: (tx + 0.5) * T, y: (ty + 0.5) * T, until: V.t + 0.5 };
+  const P = PLAYER;
+  // a person? (their body covers the tile they stand on and the one above)
+  const n = NPCS.find((q) => q.tx === tx && (q.ty === ty || q.ty === ty + 1));
+  if (n) {
+    if (adjacentTo(P, n.tx, n.ty)) { P.dir = dirTo(P, n.tx, n.ty); interact({ kind: 'npc', npc: n }); return; }
+    pathNextTo(P, n.tx, n.ty); P.onArrive = () => { if (adjacentTo(P, n.tx, n.ty)) { P.dir = dirTo(P, n.tx, n.ty); interact({ kind: 'npc', npc: n }); } };
+    return;
+  }
+  const o = objAt(tx, ty);
+  if (o && INTERACT_TYPES.has(o.type)) {
+    if (o.type === 'M') input.mouseWork = true;         // keep holding to work
+    if (adjacentTo(P, o.x, o.y, o.w, o.h)) { faceRect(P, o.x, o.y, o.w, o.h); if (o.type !== 'M') interact({ kind: 'obj', obj: o }); return; }
+    if (o.type === 'M' && !occupied(22, 9, P)) pathTo(P, 22, 9); else pathNextTo(P, o.x, o.y, o.w, o.h);
+    P.onArrive = () => { faceRect(P, o.x, o.y, o.w, o.h); if (o.type !== 'M' && adjacentTo(P, o.x, o.y, o.w, o.h)) interact({ kind: 'obj', obj: o }); };
+    return;
+  }
+  if (walkable(tx, ty)) { pathTo(P, tx, ty); P.onArrive = null; }
+});
+window.addEventListener('pointerup', () => { input.mouseWork = false; });
+
+// on-screen joystick + action button (phones)
+(() => {
+  const joy = $('#joy'), knob = $('#knob'), btn = $('#actBtn');
+  let id = null;
+  const move = (e) => {
+    const r = joy.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const len = Math.hypot(dx, dy), max = r.width / 2 - 20, k = len > max ? max / len : 1;
+    knob.style.transform = `translate(${dx * k}px,${dy * k}px)`;
+    input.joy = len < 14 ? null : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  };
+  const end = () => { id = null; input.joy = null; knob.style.transform = ''; };
+  joy.addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.init(); id = e.pointerId; joy.setPointerCapture(id); move(e); });
+  joy.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
+  joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
+  btn.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); Sound.init(); btn.classList.add('held');
+    if (S.mode === 'title') return startGame();
+    if (S.mode === 'gameover') { if (canRestart()) startGame(); return; }
+    if (S.mode === 'paused') return resumeGame();
+    if (S.mode === 'minigame') { if (MG.active) MG.active.key('e'); return; }
+    if (UI.tw && UI.tw.n < UI.tw.full.length) { UI.tw.n = UI.tw.full.length; return; }
+    if (S.mode === 'playing') { input.actionPressed = true; input.touchHeld = true; }
+  });
+  const up = () => { btn.classList.remove('held'); input.touchHeld = false; };
+  btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('pointerleave', up);
+})();
+window.addEventListener('resize', resizeView);
+
+/* =====================================================================
+   MAIN LOOP
+   ===================================================================== */
+let lastFrame = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000);
+  lastFrame = now;
+  if (S.mode === 'playing') update(dt);
+  else if (S.mode === 'title') for (const n of NPCS) updateNPC(n, dt);   // office stays alive behind the title
+  else if (S.mode === 'minigame' && MG.active) {
+    MG.active.update(dt);
+    const mc = $('#mgCanvas');
+    if (MG.active && MG.active.kind === 'pong' && mc) { const x = mc.getContext('2d'); x.setTransform(2, 0, 0, 2, 0, 0); x.lineJoin = 'round'; x.lineCap = 'round'; MG.active.render(x); }
+  }
+  updateVisuals(dt);
+  updateCamera(dt, false);
+  render();
+  if (!$('#overlay').hidden) renderPortrait();
+  UI.sync(dt);
+  requestAnimationFrame(frame);
+}
+
+/* Test/balance hooks (harmless in normal play) */
+window.DSS = {
+  CONFIG, CONTENT, S, V, P: PLAYER, NPCS, OBJECTS, GRID, MY_DESK, walkable, bfs,
+  start: startGame, gameOver, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
+  api: {
+    goToTile(tx, ty) { const P = PLAYER; if (P.tx === tx && P.ty === ty && !P.moving) return true; if (!P.path.length && !P.moving) pathTo(P, tx, ty); return false; },
+    goToObj(type) {
+      const P = PLAYER;
+      const o = OBJECTS.filter((x) => x.type === type).sort((a, b) => (Math.abs(a.x - P.tx) + Math.abs(a.y - P.ty)) - (Math.abs(b.x - P.tx) + Math.abs(b.y - P.ty)))[0];
+      if (adjacentTo(P, o.x, o.y, o.w, o.h) && !P.moving) { faceRect(P, o.x, o.y, o.w, o.h); return true; }
+      if (!P.path.length && !P.moving) pathNextTo(P, o.x, o.y, o.w, o.h);
+      return false;
+    },
+    goToNpc(n) {
+      const P = PLAYER;
+      if (adjacentTo(P, n.tx, n.ty) && !P.moving) { P.dir = dirTo(P, n.tx, n.ty); return true; }
+      if (!P.moving) pathNextTo(P, n.tx, n.ty);
+      return false;
+    },
+    press() { input.actionPressed = true; },
+    hold(b) { input.simHold = b; },
+    target: () => currentTarget(),
+    coffeeReady() { const P = PLAYER; const o = OBJECTS.filter((x) => x.type === 'C').sort((a, b) => (Math.abs(a.x - P.tx) + Math.abs(a.y - P.ty)) - (Math.abs(b.x - P.tx) + Math.abs(b.y - P.ty)))[0]; return S.time >= (S.coffeeReady[o.id] || 0); },
+    zone: () => playerZone(),
+    activeCase: () => activeCase(),
+  },
+  /* Run a whole game headlessly: policy(api, S) is called every tick */
+  simulate(policy, maxSeconds = 1800, dt = 1 / 30) {
+    SIM = true;
+    resetGame(); S.mode = 'playing';
+    let stuck = 0;
+    while (S.mode !== 'gameover' && S.time < maxSeconds) {
+      policy(DSS.api, S);
+      if (S.mode === 'playing') { update(dt); stuck = 0; }
+      else if (++stuck > 300) chooseAny(0);
+    }
+    const res = { seconds: +S.time.toFixed(1), days: +(S.time / CONFIG.secondsPerDay).toFixed(2), cause: S.mode === 'gameover' ? S.deathCause : 'timeout', onTime: S.onTime, late: S.lateCount, score: computeScore() };
+    SIM = false; input.simHold = false;
+    resetGame(); S.mode = 'title'; UI.showTitle();
+    return res;
+  },
+};
+
+resetGame();
+UI.init();
+UI.showTitle();
+resizeView();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

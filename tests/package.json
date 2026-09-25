@@ -1,0 +1,12 @@
+{
+  "name": "drug-safety-sim-tests",
+  "private": true,
+  "description": "Playwright smoke + balance tests for Drug Safety Simulator",
+  "scripts": {
+    "smoke": "node smoke.js",
+    "balance": "node balance.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  }
+}
