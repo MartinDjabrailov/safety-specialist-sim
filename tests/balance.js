@@ -1,6 +1,8 @@
 // Balance check: plays whole games headlessly with bot players (real grid movement, real rules).
 // Run: cd tests && npm install && node balance.js
-// Targets: an idle player lasts a few minutes; an average (casual) player survives ~15 minutes (1 day = 90 s).
+// Targets: inattentive (idle) ~4 min · attentive (average) ~8 min · high attention: much longer (1 day = 90 s).
+// Attention is modelled as reaction time, how often the player zones out, how fast alerts get answered,
+// and whether they use the nearby WC/vending machine instead of wandering to the far break area.
 const { chromium } = require('playwright');
 const path = require('path');
 const FILE = 'file:///' + path.resolve(__dirname, '..', 'index.html').replace(/\\/g, '/');
@@ -18,12 +20,13 @@ async function launch() {
   await page.goto(FILE);
   await page.waitForTimeout(300);
 
+  //  bot = [reaction s, answers alerts after s, choice noise, zone-out chance, zone-out min s, zone-out max s, smart breaks]
   const runs = [
-    ['idle (never touches anything)', 'idle', 30],
+    ['inattentive (never touches anything)', 'idle', 30],
     ['coffee spammer (stands at the machine)', 'spam', 10],
-    ['good player (decides every 0.5 s, answers alerts in 1.5 s)', [0.5, 1.5, 0], 20],
-    ['casual player (every 1.5 s, answers in 3 s, sloppy)', [1.5, 3, 300], 20],
-    ['slow player (every 3 s, answers in 6 s, very sloppy)', [3, 6, 800], 20],
+    ['distracted (acts every 2.5 s, zones out 25% of the time)', [2.5, 5, 600, 0.25, 4, 10, false], 20],
+    ['attentive (acts every 1.5 s, zones out 10% of the time)', [1.5, 3, 300, 0.1, 3, 8, false], 20],
+    ['high attention (every 0.4 s, never zones out, smart breaks)', [0.4, 1, 0, 0, 0, 0, true], 20],
   ];
   for (const [name, kind, n] of runs) {
     const res = await page.evaluate(([kind, n]) => {
@@ -52,23 +55,29 @@ async function launch() {
         choices.forEach((ch, i) => { const u = score(S, ch.effects, noise); if (u > bu) { bu = u; bi = i; } });
         return bi;
       };
-      const makeBot = ([reaction, eventDelay, noise]) => {
-        let next = 0, evSeen = null, evAt = 0, resting = false;
+      const makeBot = ([reaction, eventDelay, noise, zoneOut = 0, zMin = 0, zMax = 0, smart = false]) => {
+        let next = 0, evSeen = null, evAt = 0, resting = false, dazedUntil = 0;
         return (api, S) => {
           if (S.mode === 'dialog') return DSS.chooseAny(best(S, S.dialog.choices, noise));
           if (S.mode === 'scene') return DSS.chooseAny(best(S, S.scene.choices, noise));
-          if (S.event && S.event.def.type !== 'meeting') {
+          const dazed = S.time < dazedUntil;
+          if (S.event && S.event.def.type !== 'meeting' && !dazed) {
             if (evSeen !== S.event) { evSeen = S.event; evAt = S.time; }
             if (S.time - evAt >= eventDelay) DSS.chooseAny(best(S, S.event.def.choices, noise));
           }
           if (S.time < next) return;
           next = S.time + reaction;
+          if (zoneOut && Math.random() < zoneOut) {       // checks the phone, stares out of the window...
+            dazedUntil = S.time + zMin + Math.random() * (zMax - zMin);
+            next = dazedUntil; api.hold(false); return;
+          }
           api.hold(false);
           const st = S.stats;
           if (P.lockedUntil > S.time || S.meeting) return;
           if (S.event && S.event.def.type === 'meeting') { api.goToTile(30, 5); return; }
           if (st.caffeine < 50 && api.coffeeReady() && st.caffeine + C.coffee.caffeine < C.jitter.overloadAt - 2) { if (api.goToObj('C')) api.press(); return; }
-          if (st.energy < 45 && api.vendReady()) { if (api.goToObj('V')) api.press(); return; }   // snacks for Energy
+          if (st.energy < (smart ? 55 : 45) && api.vendReady()) { if (api.goToObj('V')) api.press(); return; }   // snacks for Energy
+          if (smart && st.sanity < 55 && api.toiletReady()) { if (api.goToObj('L')) api.press(); return; }     // quick bio break nearby
           // Sanity: chat with a nearby colleague, otherwise rest in the break area until recovered
           // (with hysteresis, like a person would, and leaving before the manager notices)
           if (st.sanity < 40) resting = true;

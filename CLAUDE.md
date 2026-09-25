@@ -13,7 +13,21 @@ bio breaks in the WC (Sanity; Pat can't scold you in there), reading silly corpo
 colleagues, playing mini-games with them (Code It!, Abstract Blitz, Serious or Not?, Spot the Error, table tennis) and
 getting scolded by the Manager and Director. Players can clock out on purpose (O / 🕔), which still posts their score.
 On phones, alerts sit at the top and can be minimised; meeting calls start minimised with an arrow to the meeting room.
-Pacing goal: relaxed, not stressful. An average player should last ~15 minutes; an idle player a few minutes.
+On phones, movement is joystick only (tapping the floor does nothing); the round action button talks/uses/works.
+The arcade cabinet in the break area runs PV TRIVIA (see below).
+Pacing goal: attention should matter. Inattentive (idle) ~4 min · attentive players ~8 min on average ·
+high-attention players much longer. The difficulty ramp (`CONFIG.difficulty`) climbs fast for the first few days and then
+hits a ceiling (`maxArrivalMult`, `maxDrainMult`), so after that only the player's skill decides how long they last.
+
+## PV Trivia (arcade cabinet)
+- Questions: `CONTENT.triviaBank` (160+). The comment block above it shows the exact format; paste new questions anywhere
+  in the list. Every `id` must be unique and must never be reused. Categories: case, timelines, meddra, aggregate, signal,
+  regs, history, office. `review: true` marks questions a PV expert should double-check.
+- No repeats: `TriviaBag` remembers seen ids in localStorage (`drugSafetySim.triviaBag`) across games and sessions,
+  reshuffles only when the whole bank is used, and never serves the same category twice in a row.
+- Tuning in `CONFIG.trivia`: questions per game, timers per format, "Did you know?" time, points, streak multipliers,
+  streak Sanity bonus, rewards and the difficulty mix per shift day.
+- Formats: `mc` (4 options), `tf` (true/false), `odd` (odd one out). Accuracy first: only stable, well-established PV facts.
 Audience: PV colleagues. Humor must be affectionate inside jokes, never mean about real people or the company.
 
 ## Hard rules
@@ -44,7 +58,8 @@ The HTML file can also be sent directly; it then uses the same office leaderboar
 `CONFIG` · `CONTENT` · helpers · map (`buildMap`, 40x26 tiles) · pathfinding (BFS) · entities + grid movement ·
 state · game flow · stats/effects · player control · cases · NPCs/scoldings/director · events/meetings ·
 audio (`Sound`, `sfx`, `Music`) · pixel font · rendering · people · particles/bubbles · main render ·
-mini-games (`QuizGame`, `PongGame`) · UI · input · main loop. Quiz content lives in `CONTENT.minigames`.
+mini-games (`QuizGame`, `PongGame`) · PV trivia (`TriviaBag`, `TriviaGame`) · leaderboard (`Board`) · UI · input · main loop.
+Quiz content lives in `CONTENT.minigames`; trivia questions in `CONTENT.triviaBank`.
 `window.DSS` exposes state and a headless `simulate(policy)` used by the tests.
 
 ## Run
@@ -57,8 +72,10 @@ npm install          # installs Playwright (uses your installed Chrome; falls ba
 node smoke.js        # real input end-to-end: walk, coffee, talk, work a case, late case -> scolding, director,
                      # events, meeting, mini-games, name entry, leaderboard (mocked + offline fallback + live read-only check),
                      # game over, restart, persistence, phone layout. Screenshots -> tests/shots/
-node balance.js      # bot players over many simulated runs. Targets: idle lasts a few minutes, casual player ~15 min
-                     # (bots do not play mini-games, so humans who do will last a bit longer)
+node trivia.js       # trivia bank integrity + counts per category/difficulty, no-repeat bag (150 draws, reshuffle,
+                     # persistence), difficulty ramp, and screenshots of every question format
+node balance.js      # bot players with different attention levels. Targets: inattentive ~4 min, attentive ~8 min,
+                     # high attention much longer (bots do not play mini-games, so humans who do last a bit longer)
 ```
 If `npx playwright install chromium` is needed on a machine without Chrome, run it once in `tests/`.
 After changing CONFIG balance values, re-run `node balance.js` and check the targets still hold.
