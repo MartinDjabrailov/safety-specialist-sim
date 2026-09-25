@@ -145,6 +145,29 @@ button{font:inherit;color:inherit}
 .ev-timer{height:10px;border:2px solid #000;outline:2px solid var(--red);border-radius:4px;background:#2a0710;overflow:hidden;margin-bottom:10px}
 #evBar{height:100%;width:100%;background:linear-gradient(90deg,var(--red),var(--yellow))}
 #evIgnore{margin-top:8px;font-size:11px;color:var(--dim);text-align:right}
+.ev-right{display:flex;align-items:center;gap:8px}
+#evMin{width:28px;height:26px;border-radius:6px;border:2px solid #6a2030;background:#2a0710;color:var(--ink);cursor:pointer;font-size:14px;line-height:1;padding:0}
+/* minimised alert: a small pill that doesn't hide the office; tap to open */
+#eventBox.mini{width:auto;max-width:min(94vw,460px);padding:6px 10px;cursor:pointer}
+#eventBox.mini .ev-head .tag{font-size:12px}
+#eventBox.mini #evChoices,#eventBox.mini #evIgnore{display:none}
+#eventBox.mini #evTitle{font-size:12px;margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#eventBox.mini{width:min(94vw,420px)}
+.ev-head .tag{white-space:nowrap}
+#eventBox.mini .ev-timer{height:6px;margin-bottom:0}
+#eventBox.mini #evMin{transform:rotate(180deg)}
+/* corporate email pop-up */
+#mail{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:13;width:min(94vw,560px);max-height:90vh;overflow:auto;
+  background:#f5f7fb;color:#1b2033;border:4px solid #29e6ff;border-radius:12px;box-shadow:0 0 0 4px #000,0 0 30px #29e6ff66;
+  font-family:"Segoe UI",Arial,sans-serif;font-weight:400;animation:popIn2 .2s ease-out}
+.mail-bar{display:flex;justify-content:space-between;align-items:center;background:#2b59c3;color:#fff;padding:8px 12px;font-family:var(--mono);font-weight:700;letter-spacing:1px;font-size:13px}
+#mailClose{background:none;border:0;color:#fff;font-size:18px;cursor:pointer;padding:0 4px}
+.mail-meta{padding:10px 14px;border-bottom:1px solid #d5dbea;font-size:13px;line-height:1.6}
+.mail-meta b{color:#5a6280;font-weight:600;display:inline-block;min-width:62px}
+#mailSubject{font-weight:700}
+#mailBody{padding:14px;font-size:15px;line-height:1.5;white-space:pre-wrap}
+.mail-actions{display:flex;gap:8px;padding:0 14px 14px;font-family:var(--mono);font-weight:700;color:var(--ink)}
+.mail-actions .choice{flex:1;justify-content:center}
 @keyframes alertTag{50%{color:var(--red)}}
 
 /* ---------- mini-games ---------- */
@@ -238,7 +261,10 @@ button{font:inherit;color:inherit}
   #dlgPortrait{width:64px;height:64px}
   #dlgText{font-size:14px}
   .choice{font-size:12px;padding:6px 8px}
-  #eventBox{top:auto;bottom:170px}
+  #eventBox{top:6px;bottom:auto;padding:8px 10px}
+  .ev-head{font-size:12px} #evTime{font-size:15px}
+  #eventBox .choice{font-size:12px;padding:5px 8px}
+  #mailBody{font-size:14px}
   #evTitle{font-size:14px}
   .portrait{width:170px;height:147px}
 }
@@ -254,6 +280,7 @@ button{font:inherit;color:inherit}
     <div id="midCol">
       <div id="infoPanel" class="panel"><span id="dayLabel">DAY 1</span><span id="clock">09:00</span><span id="scoreLabel">0 PTS</span><span id="playerLabel"></span></div>
       <div id="topBtns">
+        <button class="tb-btn" id="clockBtn" tabindex="-1" title="Clock out (O)" aria-label="Clock out">🕔</button>
         <button class="tb-btn" id="pauseBtn" tabindex="-1" title="Pause (P)" aria-label="Pause">❚❚</button>
         <button class="tb-btn" id="muteBtn" tabindex="-1" title="Mute (M)" aria-label="Mute">🔊</button>
       </div>
@@ -269,7 +296,7 @@ button{font:inherit;color:inherit}
 </div>
 
 <div id="eventBox" hidden role="alertdialog" aria-live="assertive">
-  <div class="ev-head"><span class="tag">⚠ ALERT ⚠</span><span id="evTime">10.0</span></div>
+  <div class="ev-head"><span class="tag">⚠ ALERT ⚠</span><span class="ev-right"><span id="evTime">10.0</span><button id="evMin" tabindex="-1" title="Minimise" aria-label="Minimise alert">▾</button></span></div>
   <div id="evTitle"></div>
   <div class="ev-timer"><div id="evBar"></div></div>
   <div id="evChoices"></div>
@@ -289,6 +316,20 @@ button{font:inherit;color:inherit}
   <div class="mg-head"><span id="mgTitle"></span><span id="mgInfo"></span></div>
   <div id="mgBody"></div>
   <div id="mgFoot"></div>
+</div>
+
+<div id="mail" hidden role="dialog" aria-label="Email">
+  <div class="mail-bar"><span>📧 <span id="mailHeader"></span></span><button id="mailClose" tabindex="-1" aria-label="Close">✕</button></div>
+  <div class="mail-meta">
+    <div><b>From:</b> <span id="mailFrom"></span></div>
+    <div><b>To:</b> <span id="mailTo"></span></div>
+    <div><b>Subject:</b> <span id="mailSubject"></span></div>
+  </div>
+  <div id="mailBody"></div>
+  <div class="mail-actions">
+    <button class="choice" id="mailRead" tabindex="-1"><span class="k">1</span><span class="t"></span></button>
+    <button class="choice" id="mailReply" tabindex="-1"><span class="k">2</span><span class="t"></span></button>
+  </div>
 </div>
 
 <div id="overlay"><div id="ovInner"></div></div>
@@ -376,6 +417,9 @@ const CONFIG = {
     meetingTravelTime: 20,              // seconds to reach the meeting room
     meetingSeconds: 8,                  // how long a meeting eats
   },
+  toilet: { seconds: 4, cooldown: 45, effects: { sanity: 12, energy: 3 } },   // the WC: a short, calming lock-in
+  vending: { cooldown: 15, stuckChance: 0.1, choices: 4 },                     // snacks shown per visit (random from CONTENT.vending.snacks)
+
   // Mini-games (the office is paused while you play)
   minigames: {
     cooldown: 45,                 // seconds before the same mini-game can be played again
@@ -589,6 +633,45 @@ const CONTENT = {
       lose: ['You lost, but your sanity won.', 'Defeat. Coded as: Hand-eye coordination decreased.'] },
   },
 
+  vending: {
+    name: 'SNAX-O-MATIC 3000', line: "Today's selection. Choose wisely. Choose quickly.", walkAwayText: 'Walk away',
+    snacks: [
+      { text: 'Granola bar',   effects: { energy: 15 },                          reply: 'Oats: the fuel of compliance.' },
+      { text: 'Chocolate bar', effects: { energy: 22, sanity: 4 },               reply: 'Coded as: Mood improved (LLT).' },
+      { text: 'Energy drink',  effects: { energy: 26, caffeine: 12, sanity: -3 }, reply: 'Tastes like a battery. Works like a battery.' },
+      { text: 'Salted crisps', effects: { energy: 10, sanity: 6 },               reply: 'Crunch time, literally.' },
+      { text: 'Apple',         effects: { energy: 12, compliance: 1 },           reply: 'An apple a day keeps the auditor away.' },
+      { text: 'Protein bar',   effects: { energy: 18 },                          reply: 'Chewing it counts as a workout.' },
+    ],
+    stuck: ['It is stuck. Of course it is stuck.', 'The snack is dangling from the spiral. Mocking you.'],
+    walkAway: ['Just browsing. Emotionally.', 'The snacks will still be there. Probably.'],
+    busy: ['The machine is still processing the last transaction.'],
+  },
+  toilet: {
+    enter: 'Bio break!',
+    lines: ['Five minutes of peace. Do not tell Pat.', 'There is an SOP taped to the door. It is about handwashing.', 'Hiding from the case queue. Scientifically.'],
+    busy: ['Occupied. Someone is reading the entire PBRER in there.'],
+  },
+  // Clicking the TV opens one of these (fictional) company-wide emails.
+  mail: {
+    header: 'INBOX · 1 NEW MESSAGE', from: 'Global Internal Comms <no-reply@corp.example>', to: 'All Staff (38,412 recipients)',
+    read: 'Mark as read', replyAll: 'Reply all',
+    readEffects: { sanity: 3 }, replyAllEffects: { sanity: -4 },
+    replyAllLines: ['You replied all. 38,412 people now know you said "Thanks!".', 'Reply-all sent. Somewhere, an inbox just burst into flames.'],
+    readLines: ['Marked as read. Emotionally, too.', 'Filed under: Things I will never un-read.'],
+  },
+  mails: [
+    { subject: 'Mandatory fun is now mandatory', body: 'Dear Colleague,\n\nTo boost morale, taking part in the voluntary Fun Committee is now required. Please log all fun in FunTracker by Friday, in triplicate.\n\nUnlogged fun will be treated as a deviation.\n\nWarm regards,\nThe Fun Committee (Compliance Subgroup)' },
+    { subject: 'New SOP: How to read SOPs', body: 'Hi all,\n\nSOP-SOP-001 v1.0 explains how to read SOPs. Please read it before reading it.\n\nTraining is due yesterday. A reminder will be sent every 4 minutes until then.' },
+    { subject: 'The microwave is not a signal detection tool', body: 'Team,\n\nPlease stop "monitoring for unexpected reactions" by reheating fish at 12:00.\n\nKitchen morale has decreased by 40%. Causality: probable.' },
+    { subject: 'Printer 3 has been promoted!', body: 'Please join us in congratulating Printer 3 on its promotion to Senior Paper Jam Specialist.\n\nCake in the kitchen at 15:00 (one slice per case closed on time).' },
+    { subject: 'Updated password policy', body: 'Passwords must now contain an uppercase letter, a number, a MedDRA Lowest Level Term and the title of your first narrative.\n\nPasswords now expire every hour, on the hour.' },
+    { subject: 'Thermostat survey results', body: 'We received 47 "too hot" and 46 "too cold" responses.\n\nThe thermostat has been set to "lukewarm (unexpected)".' },
+    { subject: 'Casual Friday clarification', body: 'Casual Friday applies to clothing only. Deadlines remain formal.\n\nHoodies are permitted. Hoodies with MedDRA jokes are encouraged.' },
+    { subject: 'Re: Re: Re: Fwd: Who took my yogurt?', body: 'Whoever took the yogurt labelled "NOT YOURS - Q":\n\nQC has opened a deviation. The investigation will include a root cause analysis and fridge-side interviews.\n\nThe lid has been sent for fingerprinting.' },
+    { subject: 'Reminder: Meeting about reducing meetings', body: 'Hi team,\n\nTo reduce the number of meetings, we have scheduled a 2-hour meeting to discuss it.\n\nA follow-up meeting has been scheduled to review the outcome.' },
+  ],
+
   leaderboard: {
     online: '🌐 OFFICE LEADERBOARD', loading: '⏳ LOADING LEADERBOARD...', offline: '💾 THIS COMPUTER ONLY (OFFLINE)',
     empty: 'No scores yet. Clock in and be the first!',
@@ -671,7 +754,7 @@ const CONTENT = {
   props: {
     F: { lines: ["A yogurt labelled: 'NOT YOURS. -Q'", 'The fridge smells like an unsolved case.', 'Someone is storing a stool sample in here. Wait, no, it is hummus.'] },
     a: { lines: ['High score: QC QUINN, 999,999. Of course.', 'INSERT COIN. You only have coffee.'], effects: { sanity: 4 } },
-    v: { lines: ['PV NEWS: Local specialist reads entire SOP. More at 11.', "Now showing: 'The Narrative' (director's cut, 4 hours)."], effects: { sanity: 3 } },
+    n: { lines: ['A sign: "WASH HANDS. 20 SECONDS. QC IS WATCHING."', 'The mirror shows a person who has triaged 40 cases today.'] },
     W: { lines: ["The whiteboard says 'SIGNALS?' with three question marks.", 'Someone drew the MedDRA hierarchy. It is beautiful.'] },
     T: { lines: ['The meeting table. It has seen things.', 'A forgotten laptop shows 214 unread chats.'] },
     X: { lines: ["A mug: 'WORLD'S OKAYEST MANAGER'.", 'A sticky note: "Ask Casey about timelines :)"'] },
@@ -725,6 +808,7 @@ const CONTENT = {
     energy:     { title: "CODED AS 'FATIGUE' (PT)",   text: 'SOC: General disorders. Outcome: long nap. Causality: this job.',   color: '#39ff88', glow: 'cyan' },
     sanity:     { title: 'BURNED OUT',                text: 'Casey has been reclassified as a serious adverse event.',            color: '#ff5ae0', glow: 'pink' },
     compliance: { title: 'INSPECTION FINDING: YOU',   text: 'Critical finding. CAPA due in 30 days.',                             color: '#29d9ff', glow: 'cyan' },
+    clockout:   { title: 'CLOCKED OUT', text: 'Went home at 17:30. On time. Nobody in PV believes it.', color: '#39ff88', glow: 'cyan' },
     overload:   { title: 'SUSAR: SERIOUS UNEXPECTED SUSPECTED ADVERSE REACTION', text: 'Suspect product: coffee. Dechallenge: refused.', color: '#ff3b3b', glow: 'red' },
   },
 };
@@ -755,15 +839,17 @@ const OBJECTS = [];           // furniture objects { type, x, y, w, h }
 const ZONES = {
   director: { x: 1,  y: 1,  w: 10, h: 6,  label: 'DIRECTOR' },
   manager:  { x: 12, y: 1,  w: 11, h: 6,  label: 'MANAGER' },
-  meeting:  { x: 24, y: 1,  w: 15, h: 6,  label: 'MEETING ROOM' },
+  restroom: { x: 24, y: 1,  w: 3,  h: 6,  label: 'WC' },
+  meeting:  { x: 28, y: 1,  w: 11, h: 6,  label: 'MEETING ROOM' },
   open:     { x: 1,  y: 8,  w: 38, h: 10, label: 'PV OPEN PLAN' },
   kitchen:  { x: 1,  y: 19, w: 14, h: 6,  label: 'KITCHEN' },
   break:    { x: 16, y: 19, w: 23, h: 6,  label: 'BREAK AREA' },
 };
-const DOORS = [[8, 7, 2, 1], [17, 7, 2, 1], [30, 7, 2, 1], [6, 18, 2, 1], [22, 18, 3, 1]];
+const DOORS = [[8, 7, 2, 1], [17, 7, 2, 1], [25, 7, 1, 1], [30, 7, 2, 1], [6, 18, 2, 1], [22, 18, 3, 1]];
 // Furniture letters: D desk, M my desk, C coffee machine, K counter, F fridge, k kitchen table, T meeting table,
-// W whiteboard, H shelf, X manager desk, Z director desk, P printer, s sofa, v TV, g ping pong, a arcade, p plant, w water cooler
-const INTERACT_TYPES = new Set(['M', 'C', 'P', 'F', 'a', 'v', 'W', 'T', 'X', 'Z', 's', 'w', 'k', 'H', 'D', 'p', 'g', 'K']);
+// W whiteboard, H shelf, X manager desk, Z director desk, P printer, s sofa, v TV, g ping pong, a arcade, p plant, w water cooler,
+// L toilet, n sink, V vending machine
+const INTERACT_TYPES = new Set(['M', 'C', 'P', 'F', 'a', 'v', 'W', 'T', 'X', 'Z', 's', 'w', 'k', 'H', 'D', 'p', 'g', 'K', 'L', 'n', 'V']);
 
 function buildMap() {
   for (let y = 0; y < MAP_H; y++) { GRID[y] = Array(MAP_W).fill('#'); FLOOR[y] = Array(MAP_W).fill('open'); }
@@ -779,7 +865,9 @@ function buildMap() {
   // manager
   place('H', 14, 1, 4, 1); place('p', 22, 1); place('X', 15, 3, 4, 1); place('p', 12, 6);
   // meeting room
-  place('W', 27, 1, 9, 1); place('T', 27, 3, 9, 2); place('p', 24, 6); place('p', 38, 6);
+  place('W', 29, 1, 8, 1); place('T', 29, 3, 8, 2); place('p', 28, 6); place('p', 38, 6);
+  // restroom (WC)
+  place('L', 25, 1); place('n', 24, 4);
   // open plan desk clusters (2 tiles per desk, back to back)
   for (const cx of [3, 11, 19, 27]) for (const r of [10, 14]) for (const dy of [0, 1]) for (const dx of [0, 2]) {
     const mine = cx === 19 && r === 10 && dy === 0 && dx === 2;
@@ -787,6 +875,7 @@ function buildMap() {
   }
   place('P', 37, 10, 1, 2); place('w', 1, 8); place('p', 38, 8); place('p', 1, 13); place('p', 38, 13);
   place('C', 33, 8, 2, 1);   // open-plan coffee corner, close to the desks
+  place('V', 36, 8);         // vending machine: snacks for Energy
   // kitchen
   place('K', 1, 24, 7, 1); place('C', 8, 24, 2, 1); place('K', 10, 24, 3, 1); place('F', 13, 23, 2, 2); place('k', 5, 20, 3, 2);
   // break area
@@ -816,7 +905,7 @@ const HOMES = {
 };
 const POIS = {
   colleague: [[6, 22], [3, 22], [9, 23], [20, 21], [25, 20], [30, 20], [34, 23], [36, 11], [8, 12], [16, 12], [24, 12], [33, 15], [2, 9]],
-  manager: [[8, 22], [36, 12], [16, 12], [24, 16], [9, 9], [28, 5], [33, 13]],
+  manager: [[8, 22], [36, 12], [16, 12], [24, 16], [9, 9], [32, 5], [33, 13]],
   director: [[8, 5], [3, 5], [9, 2]],
 };
 
@@ -938,7 +1027,7 @@ const S = {
   mgReady: {},             // mini-game id -> time it can be played again
   time: 0, day: 1, stats: {},
   cases: [], nextCaseAt: 0, caseSeq: 0, activeId: null, casesVersion: 0, onTime: 0, lateCount: 0, submitted: 0,
-  coffeeReady: {}, brewing: null, printerReadyAt: 0, printerJamUntil: 0, propReady: {}, dbDownUntil: 0,
+  coffeeReady: {}, brewing: null, toiletReadyAt: 0, vendReadyAt: 0, printerReadyAt: 0, printerJamUntil: 0, propReady: {}, dbDownUntil: 0,
   overloadT: 0, breakT: 0, breakScolded: false, working: false, target: null,
   event: null, nextEventAt: 0, lastEventId: null, meeting: null,
   scoldQueue: [], approaching: null, scoldReadyAt: 0, directorT: 0, lastLowCompAt: -999,
@@ -954,7 +1043,7 @@ function resetGame() {
   S.time = 0; S.day = 1;
   for (const k of STAT_KEYS) S.stats[k] = CONFIG.stats[k].start;
   Object.assign(S, { cases: [], nextCaseAt: CONFIG.cases.firstAt, caseSeq: 1040, activeId: null, onTime: 0, lateCount: 0, submitted: 0,
-    coffeeReady: {}, brewing: null, printerReadyAt: 0, printerJamUntil: 0, propReady: {}, dbDownUntil: 0,
+    coffeeReady: {}, brewing: null, toiletReadyAt: 0, vendReadyAt: 0, printerReadyAt: 0, printerJamUntil: 0, propReady: {}, dbDownUntil: 0,
     overloadT: 0, breakT: 0, breakScolded: false, working: false, target: null,
     event: null, nextEventAt: rand(CONFIG.events.firstMin, CONFIG.events.firstMax), lastEventId: null, meeting: null,
     scoldQueue: [], approaching: null, scoldReadyAt: 0, directorT: CONFIG.director.checkEvery, lastLowCompAt: -999,
@@ -980,7 +1069,7 @@ function startGame() {
   say(pick(CONTENT.lines.start));
 }
 function pauseGame() {
-  if (!['playing', 'dialog', 'scene', 'minigame'].includes(S.mode)) return;
+  if (!['playing', 'dialog', 'scene', 'minigame', 'mail'].includes(S.mode)) return;
   S.pausedFrom = S.mode; S.mode = 'paused';
   Music.stop(); sfx.pause(); UI.showPause();
 }
@@ -1002,9 +1091,69 @@ function gameOver(cause) {
   Board.submit({ name: Board.name || 'Casey', score: S.score, days, cases: S.onTime });
   S.gameOverAt = performance.now();
   UI.hideEvent(); UI.hideDialog();
-  Music.stop(); sfx.gameover();
-  FX.shake('l'); FX.flash('#ff3b3b');
+  Music.stop();
+  if (cause === 'clockout') sfx.day();
+  else { sfx.gameover(); FX.shake('l'); FX.flash('#ff3b3b'); }
   UI.showGameOver();
+}
+/** End the shift on purpose: a normal game over that still counts for the leaderboard. */
+function clockOut() {
+  if (!['playing', 'paused'].includes(S.mode)) return;
+  S.mode = 'playing';
+  gameOver('clockout');
+}
+
+/* ---- WC, vending machine, TV email ---- */
+function useToilet() {
+  const C = CONFIG.toilet, T2 = CONTENT.toilet;
+  if (S.time < S.toiletReadyAt) { say(pick(T2.busy)); sfx.denied(); return; }
+  PLAYER.lockedUntil = S.time + C.seconds; PLAYER.lockReason = 'toilet'; PLAYER.lockStart = S.time;
+  S.inToilet = true;
+  say(T2.enter, 1.5); sfx.blip();
+}
+function finishToilet() {
+  S.inToilet = false;
+  S.toiletReadyAt = S.time + CONFIG.toilet.cooldown;
+  applyEffects(CONFIG.toilet.effects);
+  say(pick(CONTENT.toilet.lines)); sfx.choose();
+}
+function useVending() {
+  const Vd = CONTENT.vending;
+  if (S.time < S.vendReadyAt) { say(pick(Vd.busy)); sfx.denied(); return; }
+  const snacks = shuffle([...Vd.snacks]).slice(0, CONFIG.vending.choices).map((s) => ({ ...s, snack: true }));
+  const choices = [...snacks, { text: Vd.walkAwayText, effects: {}, snack: false }];
+  S.mode = 'dialog'; S.dialog = { npc: null, vend: true, topic: { line: Vd.line }, choices };
+  if (!SIM) { UI.showDialog('vend', { name: Vd.name, portrait: 'vending' }, Vd.line, choices); sfx.blip(); }
+}
+function chooseSnack(ch) {
+  S.dialog = null; S.mode = 'playing';
+  if (!SIM) UI.hideDialog();
+  if (!ch.snack) { say(pick(CONTENT.vending.walkAway)); return; }
+  S.vendReadyAt = S.time + CONFIG.vending.cooldown;
+  if (Math.random() < CONFIG.vending.stuckChance) { say(pick(CONTENT.vending.stuck)); if (!SIM) sfx.denied(); return; }
+  applyEffects(ch.effects);
+  say(ch.reply);
+  if (!SIM) sfx.coffee();
+  checkDeath();
+}
+function openMail() {
+  if (SIM) return;
+  const list = CONTENT.mails;
+  let m = pick(list);
+  if (list.length > 1) while (m === S.lastMail) m = pick(list);
+  S.lastMail = m;
+  S.mode = 'mail';
+  UI.showMail(m);
+  sfx.newCase();
+}
+function closeMail(replyAll) {
+  if (S.mode !== 'mail') return;
+  const M = CONTENT.mail;
+  S.mode = 'playing';
+  UI.hideMail();
+  if (replyAll) { applyEffects(M.replyAllEffects); say(pick(M.replyAllLines), 3.5); sfx.meh(); }
+  else { applyEffects(M.readEffects); say(pick(M.readLines)); sfx.choose(); }
+  checkDeath();
 }
 function checkDeath() {
   if (S.mode === 'gameover' || S.mode === 'title') return;
@@ -1141,6 +1290,9 @@ function interact(target) {
     case 'M': if (!S.cases.length) say(pick(CONTENT.lines.noCases)); return;
     case 'C': return useCoffee(o);
     case 'P': return usePrinter();
+    case 'L': return useToilet();
+    case 'V': return useVending();
+    case 'v': return openMail();
     case 'g': {
       if (!minigameReady('pong')) { say('The paddles need a rest. Try again in a bit.'); return; }
       const mates = NPCS.filter((n) => n.role === 'colleague' && n.state !== 'talk');
@@ -1192,6 +1344,7 @@ function useProp(o) {
 }
 function updateTimers() {
   if (S.brewing && S.time >= PLAYER.lockedUntil) finishCoffee();
+  if (S.inToilet && S.time >= PLAYER.lockedUntil) finishToilet();
   if (S.meeting && S.time >= S.meeting.until) finishMeeting();
 }
 
@@ -1343,6 +1496,7 @@ function chooseDialog(i) {
   if (!d || S.mode !== 'dialog') return;
   const ch = d.choices[i];
   if (!ch) return;
+  if (d.vend) return chooseSnack(ch);
   if (ch.minigame) { S.dialog = null; UI.hideDialog(); return startMinigame(ch.minigame, d.npc); }
   applyEffects(ch.effects);
   if (ch.reply) npcSay(d.npc, ch.reply);
@@ -1378,6 +1532,7 @@ function updateScolds(dt) {
   if (!n || n.state !== 'approach') return;
   n.approachT += dt;
   if (S.time < n.pauseUntil) return;              // the Pokemon-trainer "!" pause
+  if (S.inToilet) return;                         // nobody scolds you through the WC door
   const P = PLAYER;
   if (!n.moving && adjacentTo(n, P.tx, P.ty) && !P.moving) {
     n.dir = dirTo(n, P.tx, P.ty);
@@ -1752,10 +1907,11 @@ const FLOOR_STYLE = {
   meeting:  ['#5fb2ae', '#57a6a2'],
   manager:  ['#8b9bd4', '#8292cb'],
   director: ['#b24a58', '#a8404f'],
+  restroom: ['#e4eef7', '#cddcea'],
 };
 function drawFloorTile(c, tx, ty) {
   const key = FLOOR[ty][tx], st = FLOOR_STYLE[key] || FLOOR_STYLE.open, X = tx * T, Y = ty * T;
-  if (key === 'kitchen') { c.fillStyle = (tx + ty) % 2 ? st[0] : st[1]; c.fillRect(X, Y, T, T); return; }
+  if (key === 'kitchen' || key === 'restroom') { c.fillStyle = (tx + ty) % 2 ? st[0] : st[1]; c.fillRect(X, Y, T, T); return; }
   c.fillStyle = st[0]; c.fillRect(X, Y, T, T);
   c.fillStyle = st[1];
   if (key === 'break') { for (let i = 0; i < 4; i++) c.fillRect(X, Y + i * 8 + 7, T, 1); c.fillRect(X + ((ty % 2) ? 10 : 24), Y, 1, T); }
@@ -1853,7 +2009,9 @@ function drawObj(c, o, t) {
       c.fillStyle = '#1f3b8a'; c.fillRect(X + 6, Y - 8, W - 12, 18);
       drawPx(c, 'PV NEWS', X + W / 2, Y - 5, 1, '#ffd23f', 'center');
       c.fillStyle = '#e53935'; c.fillRect(X + 6, Y + 5, W - 12, 5);
-      drawPx(c, 'SOP', X + 6 + ((t * 20) % (W - 20)), Y + 4, 1, '#fff'); return;
+      drawPx(c, 'SOP', X + 6 + ((t * 20) % (W - 20)), Y + 4, 1, '#fff');
+      if (Math.sin(t * 4) > 0) { box(c, X + W - 16, Y - 22, 14, 10, 2, '#ffffff', 1.5); c.strokeStyle = INK; c.lineWidth = 1.2; c.beginPath(); c.moveTo(X + W - 16, Y - 22); c.lineTo(X + W - 9, Y - 16); c.lineTo(X + W - 2, Y - 22); c.stroke(); }
+      return;
     case 'g': box(c, X + 2, Y + 4, W - 4, H - 8, 3, '#2e8b57', 3);
       c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(X + 7, Y + 9, W - 14, H - 18); line(c, X + W / 2, Y + 9, X + W / 2, Y + H - 9);
       c.fillStyle = '#e53935'; circle(c, X + 24, Y + H / 2, 5); c.fill(); circle(c, X + W - 24, Y + H / 2, 5); c.fill(); return;
@@ -1864,6 +2022,29 @@ function drawObj(c, o, t) {
       box(c, X + 9, Y + 14, 14, 14, 3, '#c0613a', 2);
       c.fillStyle = '#2fbf71'; for (const [lx, ly, r] of [[16, 6, 8], [9, 10, 6], [23, 10, 6]]) { circle(c, X + lx, Y + ly, r); c.fill(); ink(c, 2); }
       c.fillStyle = '#58e08f'; circle(c, X + 14, Y + 4, 3); c.fill(); return;
+    case 'L': // toilet
+      box(c, X + 7, Y - 8, 18, 12, 3, '#f4f7fc');
+      c.fillStyle = '#f4f7fc'; ellipse(c, X + 16, Y + 16, 10, 11); c.fill(); ink(c, 2.5);
+      c.fillStyle = '#b9d7ee'; ellipse(c, X + 16, Y + 17, 6, 7); c.fill(); ink(c, 1.5);
+      c.fillStyle = '#9aa3b5'; c.fillRect(X + 22, Y - 5, 3, 2);
+      if (S.inToilet) drawPx(c, 'OCCUPIED', X + 16, Y - 20, 1, '#e53935', 'center', '#fff');
+      return;
+    case 'n': // sink + mirror
+      box(c, X + 6, Y - 14, 20, 12, 2, '#bfe3ff', 2);
+      box(c, X + 4, Y + 6, 24, 16, 4, '#eef1fa');
+      c.fillStyle = '#b9d7ee'; ellipse(c, X + 16, Y + 15, 7, 4); c.fill();
+      c.fillStyle = '#9aa3b5'; c.fillRect(X + 15, Y + 6, 2, 5);
+      return;
+    case 'V': { // vending machine
+      box(c, X + 1, Y - 24, W - 2, H + 20, 4, '#c0392b', 3);
+      c.fillStyle = '#1b1d33'; rr(c, X + 4, Y - 20, W - 12, 26, 2); c.fill();
+      const cols = ['#ffd23f', '#39ff88', '#ff9ecf', '#29e6ff', '#ff9d2e', '#b28dff'];
+      for (let r = 0; r < 3; r++) for (let q = 0; q < 3; q++) { c.fillStyle = cols[(r * 3 + q) % 6]; c.fillRect(X + 6 + q * 6, Y - 17 + r * 8, 4, 5); }
+      c.fillStyle = '#fff'; c.fillRect(X + W - 7, Y - 14, 3, 8);
+      c.fillStyle = '#1b1d33'; c.fillRect(X + 5, Y + 9, W - 10, 4);
+      drawPx(c, 'SNAX', X + W / 2, Y - 31, 1, '#ffd23f', 'center', INK);
+      return;
+    }
     case 'w': box(c, X + 8, Y + 10, 16, 18, 3, '#e6eaf5', 2); c.fillStyle = '#6ec6ff'; circle(c, X + 16, Y + 5, 7); c.fill(); ink(c, 2); return;
   }
 }
@@ -2110,6 +2291,9 @@ function promptLabel(tg) {
     case 'M': return !S.cases.length ? 'DESK: NO CASES' : S.time < S.dbDownUntil ? 'DATABASE DOWN...' : 'HOLD: WORK CASE';
     case 'C': return S.time < (S.coffeeReady[o.id] || 0) ? 'COFFEE (BREWING)' : 'COFFEE';
     case 'P': return 'PRINT';
+    case 'L': return S.time < S.toiletReadyAt ? 'WC (OCCUPIED)' : 'BIO BREAK';
+    case 'V': return S.time < S.vendReadyAt ? 'VENDING (BUSY)' : 'SNACKS (+NRG)';
+    case 'v': return 'CHECK CORPORATE EMAIL';
     case 'g': return minigameReady('pong') ? 'PLAY TABLE TENNIS' : 'TABLE TENNIS (RESTING)';
     case 'T': case 'W': return S.event && S.event.def.type === 'meeting' ? 'JOIN MEETING' : 'LOOK';
     default: return 'LOOK';
@@ -2169,6 +2353,18 @@ function render() {
     drawBubble(c, p.x + sh.x, p.y + sh.y, e.say.text, e === PLAYER ? '#fffdf2' : '#e9f7ff');
   }
   drawPops(c);
+  // meeting call: an arrow next to Casey points the way to the meeting room
+  if (S.mode === 'playing' && S.event && S.event.def.type === 'meeting' && playerZone() !== 'meeting') {
+    const p = toScreen(PLAYER.x, PLAYER.y - 26), d = toScreen(31 * T, 7 * T);
+    const ang = Math.atan2(d.y - p.y, d.x - p.x), R = 54;
+    const ax = p.x + Math.cos(ang) * R + sh.x, ay = p.y + Math.sin(ang) * R + sh.y;
+    c.save(); c.translate(ax, ay); c.rotate(ang);
+    const pulse = 1 + 0.15 * Math.sin(V.t * 8);
+    c.scale(pulse, pulse);
+    c.fillStyle = '#ff3fb4'; c.beginPath(); c.moveTo(14, 0); c.lineTo(-8, -10); c.lineTo(-3, 0); c.lineTo(-8, 10); c.closePath(); c.fill(); ink(c, 2.5);
+    c.restore();
+    drawPx(c, 'MEETING', ax, ay + 14, 1, '#ff3fb4', 'center', INK);
+  }
   if (S.mode === 'playing' && PLAYER.lockedUntil <= S.time) {
     const label = promptLabel(S.target);
     if (label) {
@@ -2195,7 +2391,9 @@ function renderPortrait() {
   c.setTransform(2, 0, 0, 2, 0, 0); c.lineJoin = 'round'; c.lineCap = 'round';
   c.fillStyle = 'rgba(41,230,255,.1)'; ellipse(c, 110, 120, 100, 80); c.fill();
   const base = { look: PLAYER.look, moving: false, moveT: 0, moveDur: 1, foot: 0, seed: 0 };
-  if (S.mode === 'gameover') {
+  if (S.mode === 'gameover' && S.deathCause === 'clockout') {
+    drawPerson(c, base, V.t, { x: 110, y: 176, scale: 3.1, mood: 'happy', dir: 'down', wave: true });
+  } else if (S.mode === 'gameover') {
     c.save(); c.translate(150, 130); c.rotate(-Math.PI / 2);
     if (S.deathCause === 'overload') c.translate(rand(-2, 2), rand(-2, 2));
     drawPerson(c, base, V.t, { x: 0, y: 0, scale: 2.6, mood: 'dead', dir: 'down', noShadow: true });
@@ -2211,6 +2409,12 @@ function drawDialogPortrait(n, mood) {
   const c = $('#dlgPortrait').getContext('2d');
   c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 192, 192);
   c.lineJoin = 'round'; c.lineCap = 'round';
+  if (n.portrait === 'vending') {   // the vending machine "talks" in the dialogue box
+    c.save(); c.translate(32, 150); c.scale(4, 4);
+    drawObj(c, { type: 'V', x: 0, y: 0, w: 1, h: 1 }, V.t);
+    c.restore();
+    return;
+  }
   drawPerson(c, { look: n.look, moving: false, moveT: 0, moveDur: 1, foot: 0, seed: 0 }, 0.5, { x: 96, y: 262, scale: 4.2 / (n.look.scale || 1), mood, dir: 'down', noShadow: true });
 }
 
@@ -2528,6 +2732,12 @@ const UI = {
       this.stat[k] = { el: e, fill: e.querySelector('.fill'), val: e.querySelector('.stat-val'), warn: e.querySelector('.stat-warn'), last: -1, flashT: 0 };
     }
     $('#muteBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleMute(); });
+    $('#clockBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.init(); UI.showClockOut(); });
+    $('#evMin').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); UI.setEventMini(!$('#eventBox').classList.contains('mini')); });
+    $('#eventBox').addEventListener('pointerdown', (e) => { if ($('#eventBox').classList.contains('mini') && e.target.id !== 'evMin') UI.setEventMini(false); });
+    $('#mailRead').addEventListener('pointerdown', (e) => { e.preventDefault(); closeMail(false); });
+    $('#mailReply').addEventListener('pointerdown', (e) => { e.preventDefault(); closeMail(true); });
+    $('#mailClose').addEventListener('pointerdown', (e) => { e.preventDefault(); closeMail(false); });
     $('#pauseBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.init(); S.mode === 'paused' ? resumeGame() : pauseGame(); });
     this.syncMute();
     if (window.matchMedia && matchMedia('(pointer: coarse)').matches) this.enableTouch();
@@ -2626,7 +2836,9 @@ const UI = {
       if (PLAYER.lockedUntil > S.time) {
         const dur = PLAYER.lockedUntil - PLAYER.lockStart;
         frac = 1 - (PLAYER.lockedUntil - S.time) / dur;
-        text = PLAYER.lockReason === 'coffee' ? '☕ BREWING COFFEE...' : `📊 IN MEETING: ${S.meeting ? S.meeting.def.id === 'signal' ? 'SIGNAL DETECTION' : 'SOP TRAINING' : ''}`;
+        text = PLAYER.lockReason === 'coffee' ? '☕ BREWING COFFEE...'
+          : PLAYER.lockReason === 'toilet' ? '🚽 BIO BREAK... (PAT CANNOT SEE YOU)'
+          : `📊 IN MEETING: ${S.meeting ? S.meeting.def.id === 'signal' ? 'SIGNAL DETECTION' : 'SOP TRAINING' : ''}`;
       } else if (S.target && S.target.obj === MY_DESK && S.cases.length) {
         const c = activeCase();
         if (S.time < S.dbDownUntil) { text = `💾 DATABASE DOWN (${Math.ceil(S.dbDownUntil - S.time)}s)`; frac = 0; }
@@ -2657,9 +2869,20 @@ const UI = {
   },
   hideDialog() { $('#dialog').hidden = true; this.tw = null; },
 
+  showMail(m) {
+    const M = CONTENT.mail;
+    $('#mailHeader').textContent = M.header; $('#mailFrom').textContent = M.from; $('#mailTo').textContent = M.to;
+    $('#mailSubject').textContent = m.subject; $('#mailBody').textContent = m.body;
+    $('#mailRead .t').textContent = M.read + '  ' ; $('#mailReply .t').textContent = M.replyAll;
+    $('#mailRead .t').insertAdjacentHTML('beforeend', '<span class="up">' + fxHint(M.readEffects) + '</span>');
+    $('#mailReply .t').insertAdjacentHTML('beforeend', '  <span class="down">' + fxHint(M.replyAllEffects) + '</span>');
+    $('#mail').hidden = false; $('#mail').scrollTop = 0;
+  },
+  hideMail() { $('#mail').hidden = true; },
+  setEventMini(on) { $('#eventBox').classList.toggle('mini', on); },
   showEvent(def) {
     const meeting = def.type === 'meeting';
-    $('#eventBox').className = meeting ? 'meeting' : '';
+    $('#eventBox').className = meeting ? 'meeting mini' : '';   // meeting calls start as a small pill: nothing to answer
     $('#evTitle').textContent = def.title;
     const box = $('#evChoices'); box.innerHTML = '';
     if (!meeting) def.choices.forEach((ch, i) => {
@@ -2764,7 +2987,7 @@ const UI = {
       this.startButton('INSERT COFFEE TO START', () => this.showNameEntry()),
       el('div', 'ov-hi', `YOUR BEST ${S.hi.score} PTS · ${(S.hi.days || 0).toFixed(1)} DAYS · ${S.hi.cases || 0} CASES`),
       this.boardSlot(5),
-      el('div', 'ov-help', '<b>WASD/ARROWS</b> walk (tap = turn) · <b>E/SPACE</b> talk/use · <b>HOLD E</b> at your desk to work a case<br><b>CLICK/TAP</b> to walk there · <b>1-4</b> answer · <b>P</b> pause · <b>M</b> mute'),
+      el('div', 'ov-help', '<b>WASD/ARROWS</b> walk (tap = turn) · <b>E/SPACE</b> talk/use · <b>HOLD E</b> at your desk to work a case<br><b>CLICK/TAP</b> to walk there · <b>1-5</b> answer · <b>O</b> clock out · <b>P</b> pause · <b>M</b> mute'),
       el('div', 'ov-foot', CONTENT.footer),
     ]);
   },
@@ -2835,6 +3058,25 @@ const UI = {
     }
   },
   refreshBoards() { if (SIM) return; document.querySelectorAll('.lb-slot').forEach((s) => this.renderBoard(s)); },
+  showClockOut() {
+    if (!['playing', 'dialog', 'scene', 'minigame', 'mail'].includes(S.mode)) return;
+    if (S.mode === 'minigame') endMinigame(true);
+    if (S.mode === 'mail') closeMail(false);
+    if (S.mode === 'dialog' || S.mode === 'scene') return;      // finish the conversation first
+    S.pausedFrom = 'playing'; S.mode = 'paused'; Music.stop(); sfx.pause();
+    const yes = document.createElement('button'); yes.className = 'go-btn'; yes.textContent = 'CLOCK OUT';
+    yes.addEventListener('click', (e) => { e.preventDefault(); clockOut(); });
+    const no = document.createElement('button'); no.className = 'go-btn'; no.textContent = 'KEEP WORKING';
+    no.addEventListener('click', (e) => { e.preventDefault(); resumeGame(); });
+    const row = el('div', 'name-row', ''); row.style.justifyContent = 'center'; row.append(no, yes);
+    this.overlay('clockout', [
+      pxCanvas('CLOCK OUT?', 6, '#39ff88', '#0b3a22', 'glow-cyan'),
+      el('div', 'ov-text', ''),
+      row,
+      el('div', 'ov-help', '<b>ENTER</b> clock out · <b>ESC / SPACE</b> keep working'),
+    ]);
+    $('#ovInner .ov-text').textContent = `Your shift ends now and your score (${computeScore()} pts) goes on the leaderboard.`;
+  },
   showPause() {
     this.overlay('pause', [
       pxCanvas('PAUSED', 7, '#29e6ff', '#0b3a66', 'glow-cyan'),
@@ -2849,7 +3091,7 @@ const UI = {
     const long = d.title.length > 18;
     const days = S.time / CONFIG.secondsPerDay;
     this.overlay('gameover', [
-      pxCanvas('GAME OVER', 3, '#ff3b3b', '#4a0010', 'glow-red'),
+      S.deathCause === 'clockout' ? pxCanvas('SHIFT OVER', 3, '#39ff88', '#0b3a22', 'glow-cyan') : pxCanvas('GAME OVER', 3, '#ff3b3b', '#4a0010', 'glow-red'),
       pxCanvas(wrapWords(d.title, long ? 18 : 14), long ? 4 : 6, d.color, '#000', 'glow-' + d.glow),
       portrait,
       el('div', 'ov-text', d.text),
@@ -2888,7 +3130,18 @@ document.addEventListener('keydown', (e) => {
     if (k === 'm') toggleMute();
     return;
   }
+  if (S.mode === 'paused' && $('#overlay').dataset.kind === 'clockout') {
+    if (k === 'enter' && !e.repeat) clockOut();
+    else if ([' ', 'escape', 'p'].includes(k) && !e.repeat) resumeGame();
+    return;
+  }
   if (S.mode === 'paused') { if ([' ', 'enter', 'p', 'escape'].includes(k) && !e.repeat) resumeGame(); else if (k === 'm') toggleMute(); return; }
+  if (S.mode === 'mail') {
+    if (k === '2') closeMail(true);
+    else if (['1', 'e', ' ', 'enter', 'escape'].includes(k) && !e.repeat) closeMail(false);
+    return;
+  }
+  if (k === 'o' && S.mode === 'playing') return UI.showClockOut();
   if (S.mode === 'minigame') {
     if (k === 'escape') return endMinigame(true);
     if (k === 'p') return pauseGame();
@@ -2899,7 +3152,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (k === 'p' || k === 'escape') return pauseGame();
   if (k === 'm') return toggleMute();
-  if (k === '1' || k === '2' || k === '3' || k === '4') return chooseAny(Number(k) - 1);
+  if (['1', '2', '3', '4', '5'].includes(k)) return chooseAny(Number(k) - 1);
   if (k === 'e' || k === ' ' || k === 'enter') {
     if (UI.tw && UI.tw.n < UI.tw.full.length) { UI.tw.n = UI.tw.full.length; return; }
     if (!e.repeat && S.mode === 'playing') input.actionPressed = true;
@@ -2971,6 +3224,7 @@ window.addEventListener('pointerup', () => { input.mouseWork = false; });
     }
     if (S.mode === 'paused') return resumeGame();
     if (S.mode === 'minigame') { if (MG.active) MG.active.key('e'); return; }
+    if (S.mode === 'mail') return closeMail(false);
     if (UI.tw && UI.tw.n < UI.tw.full.length) { UI.tw.n = UI.tw.full.length; return; }
     if (S.mode === 'playing') { input.actionPressed = true; input.touchHeld = true; }
   });
@@ -3004,7 +3258,7 @@ function frame(now) {
 /* Test/balance hooks (harmless in normal play) */
 window.DSS = {
   CONFIG, CONTENT, S, V, P: PLAYER, NPCS, OBJECTS, GRID, MY_DESK, walkable, bfs,
-  start: startGame, gameOver, Board, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
+  start: startGame, gameOver, Board, clockOut, openMail, closeMail, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
   api: {
     goToTile(tx, ty) { const P = PLAYER; if (P.tx === tx && P.ty === ty && !P.moving) return true; if (!P.path.length && !P.moving) pathTo(P, tx, ty); return false; },
     goToObj(type) {
@@ -3023,6 +3277,7 @@ window.DSS = {
     press() { input.actionPressed = true; },
     hold(b) { input.simHold = b; },
     target: () => currentTarget(),
+    vendReady: () => S.time >= S.vendReadyAt,
     coffeeReady() { const P = PLAYER; const o = OBJECTS.filter((x) => x.type === 'C').sort((a, b) => (Math.abs(a.x - P.tx) + Math.abs(a.y - P.ty)) - (Math.abs(b.x - P.tx) + Math.abs(b.y - P.ty)))[0]; return S.time >= (S.coffeeReady[o.id] || 0); },
     zone: () => playerZone(),
     activeCase: () => activeCase(),

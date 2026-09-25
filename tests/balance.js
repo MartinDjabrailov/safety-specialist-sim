@@ -55,7 +55,7 @@ async function launch() {
       const makeBot = ([reaction, eventDelay, noise]) => {
         let next = 0, evSeen = null, evAt = 0, resting = false;
         return (api, S) => {
-          if (S.mode === 'dialog') return DSS.chooseAny(best(S, S.dialog.topic.choices, noise));
+          if (S.mode === 'dialog') return DSS.chooseAny(best(S, S.dialog.choices, noise));
           if (S.mode === 'scene') return DSS.chooseAny(best(S, S.scene.choices, noise));
           if (S.event && S.event.def.type !== 'meeting') {
             if (evSeen !== S.event) { evSeen = S.event; evAt = S.time; }
@@ -68,6 +68,7 @@ async function launch() {
           if (P.lockedUntil > S.time || S.meeting) return;
           if (S.event && S.event.def.type === 'meeting') { api.goToTile(30, 5); return; }
           if (st.caffeine < 50 && api.coffeeReady() && st.caffeine + C.coffee.caffeine < C.jitter.overloadAt - 2) { if (api.goToObj('C')) api.press(); return; }
+          if (st.energy < 45 && api.vendReady()) { if (api.goToObj('V')) api.press(); return; }   // snacks for Energy
           // Sanity: chat with a nearby colleague, otherwise rest in the break area until recovered
           // (with hysteresis, like a person would, and leaving before the manager notices)
           if (st.sanity < 40) resting = true;

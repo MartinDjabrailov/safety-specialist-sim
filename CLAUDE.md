@@ -8,8 +8,11 @@ audits/inspections and the safety database. Never add PPE, spills, forklifts, fi
 ## What it is
 A single-file, top-down arcade office game. You play Case-Closed Casey, a Senior Safety Specialist, walking
 around the office with Pokemon-style grid movement, working adverse event cases at your desk before their
-deadlines, drinking coffee (kitchen + open-plan machine), chatting with colleagues, playing mini-games with them
-(Code It!, Abstract Blitz, Serious or Not?, Spot the Error, table tennis) and getting scolded by the Manager and Director.
+deadlines, drinking coffee (kitchen + open-plan machine), grabbing snacks from the vending machine (Energy), taking
+bio breaks in the WC (Sanity; Pat can't scold you in there), reading silly corporate emails on the TV, chatting with
+colleagues, playing mini-games with them (Code It!, Abstract Blitz, Serious or Not?, Spot the Error, table tennis) and
+getting scolded by the Manager and Director. Players can clock out on purpose (O / 🕔), which still posts their score.
+On phones, alerts sit at the top and can be minimised; meeting calls start minimised with an arrow to the meeting room.
 Pacing goal: relaxed, not stressful. An average player should last ~15 minutes; an idle player a few minutes.
 Audience: PV colleagues. Humor must be affectionate inside jokes, never mean about real people or the company.
 
