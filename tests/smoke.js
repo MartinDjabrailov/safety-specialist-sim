@@ -20,19 +20,55 @@ const waitFor = async (page, fn, arg, timeout = 30000) => {
 // Walk with the in-game helper until it reports arrival (movement itself is real grid stepping)
 const walkTo = (page, call, timeout = 20000) => waitFor(page, (c) => new Function('api', 'return ' + c)(DSS.api), call, timeout);
 
+// The office leaderboard is mocked here so test runs never post to the real one.
+const FAKE_BOARD = [
+  { name: 'Nora (test)', score: 1480, days: 12.4, cases: 10, player_id: '11111111-1111-4111-8111-111111111111' },
+  { name: 'Max (test)', score: 910, days: 7.6, cases: 6, player_id: '22222222-2222-4222-8222-222222222222' },
+];
+const posted = [];
+async function mockBoard(page, mode = 'ok') {
+  await page.route('**/rest/v1/leaderboard**', async (route) => {
+    if (mode === 'offline') return route.abort('internetdisconnected');
+    const req = route.request();
+    if (req.method() === 'POST') { posted.push(JSON.parse(req.postData())); return route.fulfill({ status: 201, body: '' }); }
+    const rows = [...FAKE_BOARD, ...posted.map((p) => ({ ...p }))].sort((a, b) => b.score - a.score);
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+  });
+}
+
 (async () => {
   const browser = await launch();
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e));
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.type() + ': ' + m.text()); });
+  await mockBoard(page);
 
   await page.goto(FILE);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.waitForTimeout(800);
+  await waitFor(page, () => DSS.Board.status === 'online', null, 5000);
+  await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/1-title.png`, animations: 'disabled' });
   check('title screen visible', await page.isVisible('#overlay'));
+  check('title shows the office leaderboard', (await page.textContent('.lb-slot')).includes('Nora (test)'));
+
+  // before playing, you must enter a name
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(300);
+  check('SPACE opens the name screen (not the game)', await page.isVisible('#nameInput') && (await page.evaluate(() => DSS.S.mode)) === 'title');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(200);
+  check('an empty name is refused', (await page.evaluate(() => DSS.S.mode)) === 'title' && (await page.textContent('.name-err')).length > 5);
+  await page.fill('#nameInput', '  Test   Player <b>  ');
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: `${OUT}/1b-name-entry.png`, animations: 'disabled' });
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(300);
+  const nm = await page.evaluate(() => ({ mode: DSS.S.mode, name: DSS.Board.name, stored: localStorage.getItem('drugSafetySim.playerName') }));
+  const cleaned = await page.evaluate(() => DSS.Board.cleanName('  Dr.  <b>Ana</b> Maria-Lopez-Garcia  '));
+  check('names are cleaned (no tags/control chars, max 16)', cleaned === 'Dr. bAna/b Maria', JSON.stringify(cleaned));
+  check('name is cleaned, remembered, and the shift starts', nm.mode === 'playing' && nm.name === 'Test Player', JSON.stringify(nm));
   const mapOk = await page.evaluate(() => {
     const { POIS } = window; // not exported: verify via walkable on key tiles instead
     const tiles = [[22, 9], [9, 23], [36, 11], [28, 5], [20, 21], [16, 2], [5, 2]];
@@ -40,10 +76,6 @@ const walkTo = (page, call, timeout = 20000) => waitFor(page, (c) => new Functio
   });
   check('map: key standing tiles are walkable', mapOk);
 
-  // start with the keyboard
-  await page.keyboard.press('Space');
-  await page.waitForTimeout(300);
-  check('SPACE starts the game', (await page.evaluate(() => DSS.S.mode)) === 'playing');
   await page.evaluate(() => { DSS.S.nextEventAt = 9999; DSS.CONFIG.work.qcBounceChance = 0; }); // keep this run deterministic
 
   // Pokemon-style movement: a quick tap turns without moving, holding walks tile by tile
@@ -192,6 +224,12 @@ const walkTo = (page, call, timeout = 20000) => waitFor(page, (c) => new Functio
   await page.screenshot({ path: `${OUT}/8-gameover.png`, animations: 'disabled' });
   const go = await page.evaluate(() => ({ cause: DSS.S.deathCause, score: DSS.S.score, hi: DSS.S.hi }));
   check('natural game over when energy hits 0', died && go.cause === 'energy', JSON.stringify(go));
+  const postedOk = await waitFor(page, () => DSS.Board.lastPost && DSS.Board.lastPost.state === 'posted', null, 5000);
+  const mine = posted[posted.length - 1] || {};
+  check('score is posted to the office leaderboard', postedOk && mine.name === 'Test Player' && mine.score === go.score && /^[0-9a-f-]{36}$/.test(mine.player_id || ''), JSON.stringify(mine));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/8b-gameover-leaderboard.png`, animations: 'disabled' });
+  check('game over shows the leaderboard with you highlighted', await page.evaluate(() => !!document.querySelector('.lb-slot tr.me')));
   for (const cause of ['caffeine', 'sanity', 'compliance', 'overload']) {
     await page.evaluate((c) => { DSS.start(); DSS.gameOver(c); }, cause);
     await page.waitForTimeout(250);
@@ -200,23 +238,57 @@ const walkTo = (page, call, timeout = 20000) => waitFor(page, (c) => new Functio
   await page.screenshot({ path: `${OUT}/9-gameover-susar.png`, animations: 'disabled' });
   await page.waitForTimeout(1000);
   await page.keyboard.press('Space');
-  check('SPACE restarts after game over', (await page.evaluate(() => DSS.S.mode)) === 'playing');
+  await page.waitForTimeout(200);
+  const prefill = await page.evaluate(() => document.querySelector('#nameInput') && document.querySelector('#nameInput').value);
+  check('restart asks for the player again, pre-filled', prefill === 'Test Player', String(prefill));
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(200);
+  check('ENTER starts the next shift', (await page.evaluate(() => DSS.S.mode)) === 'playing');
 
   await page.reload();
   await page.waitForTimeout(600);
-  const hi = await page.evaluate(() => DSS.S.hi);
-  check('high score persists after reload', hi.score >= go.score && hi.score > 0, JSON.stringify(hi));
+  const hi = await page.evaluate(() => ({ hi: DSS.S.hi, name: DSS.Board.name, local: DSS.Board.local.length }));
+  check('high score, name and local board persist after reload', hi.hi.score >= go.score && hi.hi.score > 0 && hi.name === 'Test Player' && hi.local > 0, JSON.stringify(hi));
+
+  // offline / blocked network: the game still works and keeps scores on this computer
+  const offCtx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+  const off = await offCtx.newPage();
+  off.on('pageerror', (e) => errors.push('offline pageerror: ' + e));
+  await mockBoard(off, 'offline');
+  await off.goto(FILE);
+  const wentOffline = await waitFor(off, () => DSS.Board.status === 'offline', null, 8000);
+  await off.keyboard.press('Space'); await off.waitForTimeout(200);
+  await off.fill('#nameInput', 'Offline Olly'); await off.keyboard.press('Enter'); await off.waitForTimeout(200);
+  await off.evaluate(() => { DSS.S.time = 200; DSS.S.stats.sanity = 0.2; });
+  await waitFor(off, () => DSS.Board.lastPost && DSS.Board.lastPost.state !== 'posting', null, 8000);
+  const offRes = await off.evaluate(() => ({ state: DSS.Board.lastPost.state, status: DSS.Board.status, row: document.querySelector('.lb-slot tr.me td.n') && document.querySelector('.lb-slot tr.me td.n').textContent }));
+  check('offline: falls back to this computer\'s leaderboard', wentOffline && offRes.state === 'failed' && offRes.row === 'Offline Olly', JSON.stringify(offRes));
+  await offCtx.close();
+
+  // live read-only check: the real office leaderboard answers from a local file (no scores are posted)
+  const liveCtx = await browser.newContext();
+  const live = await liveCtx.newPage();
+  await live.goto(FILE);
+  const liveOk = await waitFor(live, () => DSS.Board.status !== 'loading' && DSS.Board.status !== 'idle', null, 10000);
+  const liveStatus = await live.evaluate(() => DSS.Board.status);
+  check('live office leaderboard reachable (read only)', liveOk && liveStatus === 'online', liveStatus);
+  await liveCtx.close();
 
   // phone layout + touch controls
   const phone = await browser.newContext({ ...devices['iPhone 13'], defaultBrowserType: undefined });
   const pp = await phone.newPage();
   pp.on('pageerror', (e) => errors.push('phone pageerror: ' + e));
+  await mockBoard(pp);
   await pp.goto(FILE);
   await pp.waitForTimeout(600);
   await pp.tap('.startBtn');
+  await pp.waitForTimeout(300);
+  await pp.fill('#nameInput', 'Phone Pat');
+  await pp.screenshot({ path: `${OUT}/10a-phone-name.png` });
+  await pp.tap('.go-btn');
   await pp.waitForTimeout(500);
   await pp.screenshot({ path: `${OUT}/10-phone.png` });
-  check('phone: joystick + action button shown', await pp.isVisible('#joy') && await pp.isVisible('#actBtn'));
+  check('phone: name entry then joystick + action button shown', (await pp.evaluate(() => DSS.S.mode)) === 'playing' && await pp.isVisible('#joy') && await pp.isVisible('#actBtn'));
   const ov = await pp.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
   check('phone: no horizontal overflow', ov);
 

@@ -55,6 +55,27 @@ button{font:inherit;color:inherit}
 #dayLabel{color:var(--yellow);text-shadow:0 0 8px #ffd23f88}
 #clock{color:var(--cyan);margin:0 10px;text-shadow:0 0 8px #29e6ff88}
 #scoreLabel{color:var(--pink)}
+#playerLabel{color:var(--dim);margin-left:10px;font-size:12px}
+/* leaderboard */
+.lb-slot{width:100%;max-width:460px;border:2px solid #3a2f7a;border-radius:10px;background:rgba(10,8,28,.85);padding:8px 10px}
+.lb-head{font-size:12px;letter-spacing:2px;color:var(--cyan);margin-bottom:6px;text-align:left}
+.lb-head.offline{color:#ff9d2e}
+.lb-table{width:100%;border-collapse:collapse;font-size:13px}
+.lb-table td{padding:3px 4px;text-align:right;white-space:nowrap}
+.lb-table td.n{text-align:left;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.lb-table td.r{color:var(--dim);width:2.5em;text-align:left}
+.lb-table tr.top1 td.r{color:var(--yellow)}
+.lb-table tr.me td{color:var(--green);text-shadow:0 0 8px #39ff8866}
+.lb-table th{font-size:10px;color:var(--dim);font-weight:700;text-align:right;padding:0 4px 3px}
+.lb-table th:nth-child(2){text-align:left}
+.lb-empty,.lb-post{font-size:12px;color:var(--dim);padding:4px 0;text-align:left}
+.lb-post.posted{color:var(--green)} .lb-post.failed{color:#ff9d2e}
+.name-row{display:flex;gap:10px;width:100%;max-width:460px}
+#nameInput{flex:1;min-width:0;font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:3px solid var(--cyan);background:#0a0818;color:var(--ink);outline:none;box-shadow:0 0 14px #29e6ff55;user-select:text;-webkit-user-select:text}
+#nameInput:focus{border-color:var(--yellow);box-shadow:0 0 18px #ffd23f66}
+.name-err{color:var(--red);font-size:13px;min-height:1.2em}
+.go-btn{font:inherit;font-size:16px;letter-spacing:2px;padding:10px 16px;border-radius:10px;border:3px solid var(--yellow);background:#2a1a08;color:var(--yellow);cursor:pointer;box-shadow:0 4px 0 #000}
+.go-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #000}
 #topBtns{display:flex;gap:8px}
 .tb-btn{width:38px;height:32px;border-radius:8px;border:2px solid #4b3fa0;background:#1b1840;cursor:pointer;box-shadow:0 3px 0 #000;font-size:15px;line-height:1;padding:0}
 .tb-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #000}
@@ -231,7 +252,7 @@ button{font:inherit;color:inherit}
   <div id="hudTop">
     <div id="statsPanel" class="panel"><div id="status"></div></div>
     <div id="midCol">
-      <div id="infoPanel" class="panel"><span id="dayLabel">DAY 1</span><span id="clock">09:00</span><span id="scoreLabel">0 PTS</span></div>
+      <div id="infoPanel" class="panel"><span id="dayLabel">DAY 1</span><span id="clock">09:00</span><span id="scoreLabel">0 PTS</span><span id="playerLabel"></span></div>
       <div id="topBtns">
         <button class="tb-btn" id="pauseBtn" tabindex="-1" title="Pause (P)" aria-label="Pause">❚❚</button>
         <button class="tb-btn" id="muteBtn" tabindex="-1" title="Mute (M)" aria-label="Mute">🔊</button>
@@ -365,10 +386,22 @@ const CONFIG = {
             win: { sanity: 22, energy: 6 }, lose: { sanity: 10 } },
   },
   score: { perDay: 100, perCase: 25 },
+  // Office leaderboard (Supabase). The publishable key is meant to be public: the table only allows
+  // reading scores and adding new ones. Set url to '' to keep scores on each computer only.
+  leaderboard: {
+    url: 'https://rotqmeawxjvscalauier.supabase.co',
+    key: 'sb_publishable_zu92-ILFRp1h0gH1Oq84dg_KNUVYPu6',
+    table: 'leaderboard',
+    size: 10,             // rows shown
+    fetchLimit: 80,       // rows fetched before keeping each player's best
+    timeoutMs: 6000,
+    nameMax: 16,
+  },
   view: { tilesAcross: 22, minTiles: 9 },
   audio: { volume: 0.35, music: true, musicVolume: 0.4, bpm: 124, dangerTempo: 1.25 },
   fx: { restartLockMs: 900 },
-  storageKeys: { hi: 'drugSafetySim.hiScore', muted: 'drugSafetySim.muted' },
+  storageKeys: { hi: 'drugSafetySim.hiScore', muted: 'drugSafetySim.muted', board: 'drugSafetySim.board',
+                 player: 'drugSafetySim.playerName', playerId: 'drugSafetySim.playerId' },
 };
 
 /* =====================================================================
@@ -554,6 +587,16 @@ const CONTENT = {
     pong: { title: 'TABLE TENNIS', intro: 'First to 3! W/S or arrows (or drag) to move.',
       win: ['You win! Your wrists are now fully compliant.', 'Victory! Nobody will ever mention this in a 1:1.'],
       lose: ['You lost, but your sanity won.', 'Defeat. Coded as: Hand-eye coordination decreased.'] },
+  },
+
+  leaderboard: {
+    online: '🌐 OFFICE LEADERBOARD', loading: '⏳ LOADING LEADERBOARD...', offline: '💾 THIS COMPUTER ONLY (OFFLINE)',
+    empty: 'No scores yet. Clock in and be the first!',
+    posting: 'Posting your score...', posted: 'Score posted to the office leaderboard!',
+    failed: 'Could not reach the office leaderboard. Saved on this computer.', local: 'Saved on this computer.',
+    askName: 'WHO IS ON SHIFT?', nameHint: 'Your name goes on the office leaderboard (max 16 characters).',
+    namePlaceholder: 'Your name', nameMissing: 'Type your name first. The timesheet insists.',
+    start: 'START SHIFT',
   },
 
   favor: { line:"Quick favor? It's just one case. With 14 suspect drugs.",
@@ -956,6 +999,7 @@ function gameOver(cause) {
   if (SIM) return;
   const days = S.time / CONFIG.secondsPerDay;
   if (S.score > S.hi.score) { S.hi = { score: S.score, days: +days.toFixed(2), cases: S.onTime }; S.newHi = true; Store.set(CONFIG.storageKeys.hi, S.hi); }
+  Board.submit({ name: Board.name || 'Casey', score: S.score, days, cases: S.onTime });
   S.gameOverAt = performance.now();
   UI.hideEvent(); UI.hideDialog();
   Music.stop(); sfx.gameover();
@@ -2369,6 +2413,89 @@ class PongGame {
 }
 
 /* =====================================================================
+   LEADERBOARD: office-wide scores (Supabase REST), with an on-device fallback.
+   The game never depends on it: offline or blocked, it shows this computer's scores.
+   ===================================================================== */
+const dedupeBy = (list, key) => { const seen = new Set(); return list.filter((r) => { const k = String(r[key]).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }); };
+const newId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
+
+const Board = {
+  status: 'idle',        // idle | loading | online | offline
+  remote: [],            // office top list (best score per player)
+  lastPost: null,        // { name, score, state: posting | posted | failed | local }
+  local: (() => {
+    const l = Store.get(CONFIG.storageKeys.board, []);
+    return Array.isArray(l) ? l.filter((e) => e && typeof e.score === 'number' && typeof e.name === 'string').slice(0, 50) : [];
+  })(),
+  name: String(Store.get(CONFIG.storageKeys.player, '') || ''),
+  playerId: (() => {
+    let id = Store.get(CONFIG.storageKeys.playerId, null);
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) { id = newId(); Store.set(CONFIG.storageKeys.playerId, id); }
+    return id;
+  })(),
+
+  enabled() { const L = CONFIG.leaderboard; return !!(L.url && L.key && window.fetch); },
+  cleanName(s) {
+    return String(s || '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, CONFIG.leaderboard.nameMax);
+  },
+  setName(n) { this.name = n; Store.set(CONFIG.storageKeys.player, n); },
+
+  async request(path, opts = {}) {
+    const L = CONFIG.leaderboard, ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), L.timeoutMs);
+    try {
+      const r = await fetch(`${L.url}/rest/v1/${path}`, {
+        ...opts, signal: ctl.signal,
+        headers: { apikey: L.key, Authorization: `Bearer ${L.key}`, ...(opts.headers || {}) },
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r;
+    } finally { clearTimeout(timer); }
+  },
+  async refresh() {
+    if (SIM) return;
+    if (!this.enabled()) { this.status = 'offline'; UI.refreshBoards(); return; }
+    if (this.status !== 'online') { this.status = 'loading'; UI.refreshBoards(); }
+    try {
+      const L = CONFIG.leaderboard;
+      const r = await this.request(`${L.table}?select=name,score,days,cases,player_id&order=score.desc,created_at.asc&limit=${L.fetchLimit}`);
+      const rows = await r.json();
+      this.remote = dedupeBy(Array.isArray(rows) ? rows : [], 'player_id').slice(0, L.size);
+      this.status = 'online';
+    } catch (e) { this.status = 'offline'; }
+    UI.refreshBoards();
+  },
+  /** Record a finished game: always on this device, and on the office board when reachable. */
+  async submit(entry) {
+    if (SIM) return;
+    this.local.push({ ...entry, at: Date.now() });
+    this.local.sort((a, b) => b.score - a.score);
+    this.local = dedupeBy(this.local, 'name').slice(0, 50);
+    Store.set(CONFIG.storageKeys.board, this.local);
+    this.lastPost = { ...entry, state: 'posting' };
+    UI.refreshBoards();
+    if (!this.enabled() || entry.score <= 0) { this.lastPost.state = 'local'; UI.refreshBoards(); return; }
+    try {
+      await this.request(CONFIG.leaderboard.table, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ player_id: this.playerId, name: entry.name, score: Math.round(entry.score),
+          days: Math.round(entry.days * 100) / 100, cases: entry.cases }),
+      });
+      this.lastPost.state = 'posted';
+    } catch (e) { this.lastPost.state = 'failed'; }
+    await this.refresh();
+  },
+  /** Rows to show: the office board when online, otherwise this computer's. */
+  rows() {
+    const size = CONFIG.leaderboard.size;
+    if (this.status === 'online') return this.remote.slice(0, size).map((r) => ({ ...r, me: r.player_id === this.playerId }));
+    return this.local.slice(0, size).map((r) => ({ ...r, me: r.name.toLowerCase() === this.name.toLowerCase() }));
+  },
+};
+
+/* =====================================================================
    UI: HUD, case queue, dialogue box, alerts, overlays
    ===================================================================== */
 function fxHint(fx) {
@@ -2439,6 +2566,8 @@ const UI = {
     $('#dayLabel').textContent = `DAY ${S.day}`;
     $('#clock').textContent = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
     $('#scoreLabel').textContent = `${S.score} PTS`;
+    const pl = Board.name ? '👤 ' + Board.name : '';
+    if ($('#playerLabel').textContent !== pl) $('#playerLabel').textContent = pl;
     this.syncCases();
     this.syncWorkBar();
     if (S.event && !$('#eventBox').hidden) {
@@ -2615,6 +2744,7 @@ const UI = {
     const ov = $('#overlay'), inner = $('#ovInner');
     inner.innerHTML = ''; nodes.forEach((n) => n && inner.appendChild(n));
     ov.dataset.kind = kind; ov.hidden = false; ov.scrollTop = 0;
+    if (kind !== 'name') this.nameEntryOpen = false;
   },
   hideOverlay() { $('#overlay').hidden = true; },
   startButton(text, onPress) {
@@ -2631,12 +2761,80 @@ const UI = {
       el('div', 'ov-sub', CONTENT.subtitle),
       portrait,
       el('div', 'ov-hi', 'STARRING CASE-CLOSED CASEY'),
-      this.startButton('INSERT COFFEE TO START', () => startGame()),
-      el('div', 'ov-hi', `HI-SCORE ${S.hi.score} PTS · ${(S.hi.days || 0).toFixed(1)} DAYS · ${S.hi.cases || 0} CASES`),
+      this.startButton('INSERT COFFEE TO START', () => this.showNameEntry()),
+      el('div', 'ov-hi', `YOUR BEST ${S.hi.score} PTS · ${(S.hi.days || 0).toFixed(1)} DAYS · ${S.hi.cases || 0} CASES`),
+      this.boardSlot(5),
       el('div', 'ov-help', '<b>WASD/ARROWS</b> walk (tap = turn) · <b>E/SPACE</b> talk/use · <b>HOLD E</b> at your desk to work a case<br><b>CLICK/TAP</b> to walk there · <b>1-4</b> answer · <b>P</b> pause · <b>M</b> mute'),
       el('div', 'ov-foot', CONTENT.footer),
     ]);
   },
+  // ---- player name + leaderboard ----
+  showNameEntry() {
+    const L = CONTENT.leaderboard;
+    const input = document.createElement('input');
+    input.id = 'nameInput'; input.type = 'text'; input.maxLength = CONFIG.leaderboard.nameMax;
+    input.placeholder = L.namePlaceholder; input.value = Board.name; input.autocomplete = 'nickname'; input.spellcheck = false;
+    const go = document.createElement('button');
+    go.className = 'go-btn'; go.textContent = L.start;
+    go.addEventListener('click', (e) => { e.preventDefault(); this.submitName(); });
+    const row = el('div', 'name-row', ''); row.append(input, go);
+    input.addEventListener('input', () => { const err = $('#ovInner .name-err'); if (err) err.textContent = ''; });
+    this.overlay('name', [
+      pxCanvas(L.askName, 5, '#29e6ff', '#0b3a66', 'glow-cyan'),
+      el('div', 'ov-help', ''),
+      row,
+      el('div', 'name-err', ''),
+      this.boardSlot(CONFIG.leaderboard.size),
+    ]);
+    $('#ovInner .ov-help').textContent = L.nameHint;
+    this.nameEntryOpen = true;
+    setTimeout(() => { input.focus(); input.select(); }, 30);
+    Board.refresh();
+  },
+  submitName() {
+    const input = $('#nameInput');
+    if (!input) return;
+    const n = Board.cleanName(input.value);
+    if (!n) { $('#ovInner .name-err').textContent = CONTENT.leaderboard.nameMissing; sfx.denied(); input.focus(); return; }
+    Board.setName(n);
+    this.nameEntryOpen = false;
+    input.blur();
+    startGame();
+  },
+  boardSlot(size, showPost = false) {
+    const d = el('div', 'lb-slot', '');
+    d.dataset.size = size; if (showPost) d.dataset.post = '1';
+    this.renderBoard(d);
+    return d;
+  },
+  renderBoard(slot) {
+    const L = CONTENT.leaderboard, st = Board.status;
+    const rows = Board.rows().slice(0, +slot.dataset.size);
+    slot.innerHTML = '';
+    const head = el('div', 'lb-head' + (st === 'offline' ? ' offline' : ''), '');
+    head.textContent = st === 'online' ? L.online : st === 'offline' ? L.offline : L.loading;
+    slot.appendChild(head);
+    if (!rows.length) { const e = el('div', 'lb-empty', ''); e.textContent = L.empty; slot.appendChild(e); }
+    else {
+      const t = el('table', 'lb-table', '<tr><th></th><th>NAME</th><th>SCORE</th><th>DAYS</th><th>CASES</th></tr>');
+      rows.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        if (r.me) tr.className = 'me';
+        if (i === 0) tr.classList.add('top1');
+        for (const [cls, val] of [['r', i === 0 ? '👑' : '#' + (i + 1)], ['n', r.name], ['', r.score], ['', (+r.days || 0).toFixed(1)], ['', r.cases]]) {
+          const td = document.createElement('td'); if (cls) td.className = cls; td.textContent = String(val); tr.appendChild(td);
+        }
+        t.appendChild(tr);
+      });
+      slot.appendChild(t);
+    }
+    if (slot.dataset.post && Board.lastPost) {
+      const p = el('div', 'lb-post ' + Board.lastPost.state, '');
+      p.textContent = L[Board.lastPost.state] || '';
+      slot.appendChild(p);
+    }
+  },
+  refreshBoards() { if (SIM) return; document.querySelectorAll('.lb-slot').forEach((s) => this.renderBoard(s)); },
   showPause() {
     this.overlay('pause', [
       pxCanvas('PAUSED', 7, '#29e6ff', '#0b3a66', 'glow-cyan'),
@@ -2655,9 +2853,10 @@ const UI = {
       pxCanvas(wrapWords(d.title, long ? 18 : 14), long ? 4 : 6, d.color, '#000', 'glow-' + d.glow),
       portrait,
       el('div', 'ov-text', d.text),
-      el('div', 'ov-score', `SURVIVED ${(Math.floor(days * 10) / 10).toFixed(1)} WORKING DAYS · ${S.onTime} CASES ON TIME<br>SCORE ${S.score}`),
-      S.newHi ? el('div', 'ov-new', '★ NEW HIGH SCORE! ★') : el('div', 'ov-hi', `HIGH SCORE ${S.hi.score}`),
-      this.startButton('PRESS START', () => { if (canRestart()) startGame(); }),
+      el('div', 'ov-score', `SURVIVED ${(Math.floor(days * 10) / 10).toFixed(1)} WORKING DAYS · ${S.onTime} CASE${S.onTime === 1 ? '' : 'S'} ON TIME<br>SCORE ${S.score}`),
+      S.newHi ? el('div', 'ov-new', '★ NEW PERSONAL BEST! ★') : el('div', 'ov-hi', `YOUR BEST ${S.hi.score}`),
+      this.startButton('PRESS START', () => { if (canRestart()) this.showNameEntry(); }),
+      this.boardSlot(CONFIG.leaderboard.size, true),
     ]);
     if (S.newHi) sfx.hiscore();
   },
@@ -2675,9 +2874,17 @@ function toggleMute() { Sound.init(); Sound.setMuted(!Sound.muted); UI.syncMute(
 const KEY_DIR = { arrowup: 'up', w: 'up', arrowdown: 'down', s: 'down', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right' };
 document.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
+  if (e.target && e.target.tagName === 'INPUT') {          // typing a name: let every key through
+    if (k === 'enter') { e.preventDefault(); UI.submitName(); }
+    else if (k === 'escape') { e.preventDefault(); S.mode === 'gameover' ? UI.showGameOver() : UI.showTitle(); }
+    return;
+  }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   if (S.mode === 'title' || S.mode === 'gameover') {
-    if ((k === ' ' || k === 'enter') && !e.repeat) { if (S.mode === 'title' || canRestart()) startGame(); }
+    if ((k === ' ' || k === 'enter') && !e.repeat) {
+      if (UI.nameEntryOpen) UI.submitName();
+      else if (S.mode === 'title' || canRestart()) UI.showNameEntry();
+    }
     if (k === 'm') toggleMute();
     return;
   }
@@ -2757,8 +2964,11 @@ window.addEventListener('pointerup', () => { input.mouseWork = false; });
   joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
   btn.addEventListener('pointerdown', (e) => {
     e.preventDefault(); Sound.init(); btn.classList.add('held');
-    if (S.mode === 'title') return startGame();
-    if (S.mode === 'gameover') { if (canRestart()) startGame(); return; }
+    if (S.mode === 'title' || S.mode === 'gameover') {
+      if (UI.nameEntryOpen) return UI.submitName();
+      if (S.mode === 'title' || canRestart()) UI.showNameEntry();
+      return;
+    }
     if (S.mode === 'paused') return resumeGame();
     if (S.mode === 'minigame') { if (MG.active) MG.active.key('e'); return; }
     if (UI.tw && UI.tw.n < UI.tw.full.length) { UI.tw.n = UI.tw.full.length; return; }
@@ -2794,7 +3004,7 @@ function frame(now) {
 /* Test/balance hooks (harmless in normal play) */
 window.DSS = {
   CONFIG, CONTENT, S, V, P: PLAYER, NPCS, OBJECTS, GRID, MY_DESK, walkable, bfs,
-  start: startGame, gameOver, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
+  start: startGame, gameOver, Board, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
   api: {
     goToTile(tx, ty) { const P = PLAYER; if (P.tx === tx && P.ty === ty && !P.moving) return true; if (!P.path.length && !P.moving) pathTo(P, tx, ty); return false; },
     goToObj(type) {
@@ -2837,6 +3047,7 @@ window.DSS = {
 resetGame();
 UI.init();
 UI.showTitle();
+Board.refresh();
 resizeView();
 requestAnimationFrame(frame);
 </script>

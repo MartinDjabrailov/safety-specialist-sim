@@ -20,6 +20,22 @@ Audience: PV colleagues. Humor must be affectionate inside jokes, never mean abo
   The company name may appear in text only.
 - All tuning numbers go in `CONFIG` (top of the script). All dialogue, events, jokes and death screens go in `CONTENT`.
 - Wrap every `localStorage` access in try/catch (use the `Store` helper).
+- The only network call is the optional office leaderboard (`CONFIG.leaderboard`, Supabase REST). The game must keep
+  working without it: offline or blocked, `Board` falls back to this computer's scores. Never add other network calls.
+
+## Office leaderboard (Supabase)
+- Project `drug-safety-sim` (ref `rotqmeawxjvscalauier`, eu-central-1) in the owner's Supabase org, table `public.leaderboard`:
+  `player_id` (random UUID per browser), `name` (1-16 chars), `score`, `days`, `cases`, `created_at`.
+- RLS: anyone may SELECT and INSERT; nobody may UPDATE or DELETE with the public key. A check constraint rejects scores
+  that don't match the game's formula (`score <= floor(days*100) + cases*25 + 1`). Keep it in sync if `CONFIG.score` changes.
+- The publishable key in `CONFIG.leaderboard.key` is public by design. Never put a secret/service key in the page.
+- Players enter a name before every shift (`UI.showNameEntry`); each finished game is one row; the page shows each
+  player's best. Moderate or reset scores from the Supabase dashboard (Table editor -> leaderboard).
+- Tests mock the leaderboard (`page.route`) and never post real scores; one read-only check hits the live API.
+
+## Sharing
+Hosted with GitHub Pages from `main` (repo root, `index.html`): https://martindjabrailov.github.io/safety-specialist-sim/
+The HTML file can also be sent directly; it then uses the same office leaderboard when online.
 
 ## Code map (sections inside the `<script>` in index.html)
 `CONFIG` · `CONTENT` · helpers · map (`buildMap`, 40x26 tiles) · pathfinding (BFS) · entities + grid movement ·
@@ -36,7 +52,8 @@ Double-click `index.html` (Chrome or Edge). No server needed.
 cd tests
 npm install          # installs Playwright (uses your installed Chrome; falls back to Playwright's Chromium)
 node smoke.js        # real input end-to-end: walk, coffee, talk, work a case, late case -> scolding, director,
-                     # events, meeting, game over, restart, high-score persistence, phone layout. Screenshots -> tests/shots/
+                     # events, meeting, mini-games, name entry, leaderboard (mocked + offline fallback + live read-only check),
+                     # game over, restart, persistence, phone layout. Screenshots -> tests/shots/
 node balance.js      # bot players over many simulated runs. Targets: idle lasts a few minutes, casual player ~15 min
                      # (bots do not play mini-games, so humans who do will last a bit longer)
 ```

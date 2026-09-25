@@ -5,7 +5,12 @@ walk the office (Pokemon-style grid movement), process adverse event cases at yo
 deadlines, drink coffee to stay alive, chat with colleagues, play mini-games with them (and table tennis),
 and survive the Manager and the Director. A relaxed run lasts about 15 minutes.
 
-**Play:** double-click `index.html` (Chrome or Edge). Works offline, with keyboard, mouse or touch.
+**Play online:** https://martindjabrailov.github.io/safety-specialist-sim/ (once GitHub Pages is enabled)
+
+**Or offline:** double-click `index.html` (Chrome or Edge). Keyboard, mouse or touch.
+
+Enter your name before each shift: finished games go on the shared **office leaderboard** (when online; otherwise
+scores are kept on your computer).
 
 - WASD / arrows: walk (a quick tap only turns) · E / Space: talk / use · hold E at your desk: work a case
 - Click / tap: walk there · 1-4: answer · Esc: leave a mini-game · P: pause · M: mute
