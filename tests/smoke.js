@@ -98,7 +98,7 @@ async function mockBoard(page, mode = 'ok') {
   const caf0 = await page.evaluate(() => DSS.S.stats.caffeine);
   check('walked to the nearest coffee machine', await walkTo(page, 'api.goToObj("C")'));
   const machine = await page.evaluate(() => { const t = DSS.api.target(); return t && t.obj && { type: t.obj.type, label: t.obj.label, y: t.obj.y }; });
-  check('it is the open-plan machine near the desks', !!machine && machine.type === 'C' && machine.y < 18, JSON.stringify(machine));
+  check('it is the open-plan COFFEE machine near the desks', !!machine && machine.type === 'C' && machine.y < 18 && machine.label === 'COFFEE', JSON.stringify(machine));
   await page.keyboard.press('e');
   await page.waitForTimeout(2000);
   const caf1 = await page.evaluate(() => DSS.S.stats.caffeine);
@@ -344,6 +344,23 @@ async function mockBoard(page, mode = 'ok') {
   check('phone: name entry then joystick + action button shown', (await pp.evaluate(() => DSS.S.mode)) === 'playing' && await pp.isVisible('#joy') && await pp.isVisible('#actBtn'));
   const ov = await pp.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
   check('phone: no horizontal overflow', ov);
+
+  // phone: movement is joystick only; tapping the office floor must not walk Casey anywhere
+  const before = await pp.evaluate(() => ({ tx: DSS.P.tx, ty: DSS.P.ty }));
+  const vp = pp.viewportSize();
+  await pp.touchscreen.tap(Math.round(vp.width * 0.8), Math.round(vp.height * 0.75));
+  await pp.waitForTimeout(800);
+  const after = await pp.evaluate(() => ({ tx: DSS.P.tx, ty: DSS.P.ty, path: DSS.P.path.length }));
+  check('phone: tapping the floor does not move Casey (joystick only)', after.tx === before.tx && after.ty === before.ty && after.path === 0, JSON.stringify({ before, after }));
+  const box = await pp.locator('#joy').boundingBox();
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  await pp.dispatchEvent('#joy', 'pointerdown', { pointerId: 7, pointerType: 'touch', clientX: cx, clientY: cy, isPrimary: true, buttons: 1 });
+  await pp.dispatchEvent('#joy', 'pointermove', { pointerId: 7, pointerType: 'touch', clientX: cx + 50, clientY: cy, isPrimary: true, buttons: 1 });
+  await pp.waitForTimeout(700);
+  await pp.dispatchEvent('#joy', 'pointerup', { pointerId: 7, pointerType: 'touch', clientX: cx + 50, clientY: cy, isPrimary: true });
+  await pp.waitForTimeout(300);
+  const moved = await pp.evaluate(() => ({ tx: DSS.P.tx, ty: DSS.P.ty }));
+  check('phone: the joystick still walks Casey', moved.tx !== after.tx || moved.ty !== after.ty, JSON.stringify(moved));
 
   // phone: a meeting call is a small pill at the top, never covering Casey, and shows the way
   await pp.evaluate(() => DSS.spawnEvent('signal'));

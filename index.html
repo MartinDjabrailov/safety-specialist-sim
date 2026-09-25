@@ -198,6 +198,27 @@ button{font:inherit;color:inherit}
 #qBar{height:100%;width:100%;background:linear-gradient(90deg,var(--pink),var(--yellow))}
 .q-feedback{font-size:18px;letter-spacing:3px}
 
+/* ---------- PV trivia ---------- */
+.tv-wrap{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;gap:10px}
+.tv-top{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:580px;gap:8px;flex-wrap:wrap}
+.tv-chip{font-size:11px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:#2e3a7a;color:var(--cyan)}
+.tv-stars{color:var(--yellow);margin-left:8px;letter-spacing:1px}
+.tv-type{font-size:11px;color:var(--pink);margin-left:8px;letter-spacing:1px}
+.tv-streak{font-size:13px;color:var(--yellow);letter-spacing:1px}
+.tv-streak.hot{color:#ff9d2e;text-shadow:0 0 10px #ff9d2e88}
+.tv-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:580px}
+.tv-opts .choice{font-size:13px}
+.tv-opts.two .choice{justify-content:center;font-size:18px;padding:12px}
+.tv-banner{position:absolute;left:50%;top:13%;transform:translate(-50%,-50%);pointer-events:none;text-align:center;
+  background:rgba(8,6,22,.9);padding:10px 20px;border-radius:14px;border:3px solid var(--green);box-shadow:0 0 30px #39ff8866;animation:tvBanner .45s ease-out}
+.tv-banner.bad{border-color:var(--red);box-shadow:0 0 30px #ff3b3b66;animation:tvBanner .45s ease-out,shakeS .3s linear .1s}
+@keyframes tvBanner{0%{transform:translate(-50%,-50%) scale(.3) rotate(-8deg);opacity:0}60%{transform:translate(-50%,-50%) scale(1.12)}100%{transform:translate(-50%,-50%) scale(1)}}
+.tv-gain{font-size:16px;color:var(--green);margin-top:4px;letter-spacing:1px}
+.tv-bonus{color:var(--pink);font-size:15px;letter-spacing:2px;margin-top:4px;animation:blink .25s steps(1) 6}
+.tv-why{width:100%;max-width:580px;border:2px dashed #3a2f7a;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.4;text-align:left;background:#141033}
+.tv-why b{color:var(--yellow);letter-spacing:1px}
+@media (max-width:700px){ .tv-opts{grid-template-columns:1fr} .tv-banner{top:10%} }
+
 /* ---------- touch controls ---------- */
 #joy{position:fixed;left:22px;bottom:28px;width:130px;height:130px;border-radius:50%;border:3px solid #29e6ff88;background:rgba(41,230,255,.08);touch-action:none;pointer-events:auto;z-index:6}
 #knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:#29e6ff55;border:3px solid var(--cyan);pointer-events:none}
@@ -347,12 +368,13 @@ const CONFIG = {
 
   stats: {
     //            start  drain/s  flashes below
-    caffeine:   { start: 70, drain: 0.35, danger: 20, label: 'CAFFEINE',   short: 'CAF',  color: '#ffb000', icon: '☕' },
+    caffeine:   { start: 70, drain: 0.2,  danger: 20, label: 'CAFFEINE',   short: 'CAF',  color: '#ffb000', icon: '☕' },
     energy:     { start: 80, drain: 0.2,  danger: 20, label: 'ENERGY',     short: 'NRG',  color: '#39ff88', icon: '⚡' },
-    sanity:     { start: 80, drain: 0.15, danger: 20, label: 'SANITY',     short: 'SAN',  color: '#ff5ae0', icon: '🧠' },
+    sanity:     { start: 80, drain: 0.1,  danger: 20, label: 'SANITY',     short: 'SAN',  color: '#ff5ae0', icon: '🧠' },
     compliance: { start: 80, drain: 0.05, danger: 25, label: 'COMPLIANCE', short: 'COMP', color: '#29d9ff', icon: '📋' },
   },
-  difficulty: { drainPerDay: 0.12, arrivalPerDay: 0.12 },   // each new day: drains +12%, cases arrive 12% faster
+  // each new day: drains and case arrivals speed up, until they hit the ceiling (then only your skill decides)
+  difficulty: { drainPerDay: 0.2, arrivalPerDay: 0.4, maxDrainMult: 1.6, maxArrivalMult: 2.3 },
   energyRegen: { rate: 0.5, caffeineMin: 40, caffeineMax: 85 }, // "in the zone" energy regen
   jitter: {
     threshold: 90,          // above this Caffeine Casey is jittery...
@@ -388,13 +410,13 @@ const CONFIG = {
     jitterySpeed: 1.25,     // work speed when jittery
   },
   cases: {
-    firstAt: 4,                          // seconds until the first case
+    firstAt: 15,                         // seconds until the first case
     arrivalMin: 24, arrivalMax: 34,      // seconds between new cases
     seriousChance: 0.3,
-    seriousDeadline: 55,                 // compressed "7-day" clock, in seconds
-    normalDeadline: 100,                 // compressed "15-day" clock, in seconds
+    seriousDeadline: 35,                 // compressed "7-day" clock, in seconds
+    normalDeadline: 65,                  // compressed "15-day" clock, in seconds
     onTime: { compliance: 10 },
-    late: { compliance: -10 },           // when a deadline passes (+ manager scolding)
+    late: { compliance: -6 },            // when a deadline passes (+ manager scolding)
     lateSubmit: { compliance: 3 },       // submitting a case that was already late
   },
   breakArea: { sanityPerSec: 3, maxSeconds: 12 },   // longer than this in the break area = scolding
@@ -407,18 +429,36 @@ const CONFIG = {
     favorChance: 0.3,       // chance a colleague asks for a "quick favor" (adds a case)
     idleMin: 3, idleMax: 8, deskMin: 6, deskMax: 14,
   },
-  scold: { cooldown: 8, maxQueue: 2, giveUpAfter: 25, exclaimSeconds: 0.8 },
+  scold: { cooldown: 20, maxQueue: 2, giveUpAfter: 25, exclaimSeconds: 0.8 },
   director: { checkEvery: 180, chance: 0.3, lowCompliance: 40, lowComplianceCooldown: 90 },
 
   events: {
     firstMin: 25, firstMax: 35,
-    minGap: 30, maxGap: 60,             // seconds between alerts
+    minGap: 40, maxGap: 70,             // seconds between alerts
     responseTime: 10,                   // seconds to answer before the ignore penalty
     meetingTravelTime: 20,              // seconds to reach the meeting room
     meetingSeconds: 8,                  // how long a meeting eats
   },
   toilet: { seconds: 4, cooldown: 45, effects: { sanity: 12, energy: 3 } },   // the WC: a short, calming lock-in
   vending: { cooldown: 15, stuckChance: 0.1, choices: 4 },                     // snacks shown per visit (random from CONTENT.vending.snacks)
+
+  // PV Trivia on the arcade cabinet (questions live in CONTENT.triviaBank)
+  trivia: {
+    questionsPerGame: 7,
+    cooldown: 30,                              // seconds before the cabinet can be played again
+    seconds: { mc: 12, odd: 12, tf: 8 },       // countdown per question type
+    whySeconds: 2,                             // how long the CORRECT/WRONG banner + "Did you know?" stays up
+    pointsPerDifficulty: { 1: 100, 2: 150, 3: 200 },
+    multipliers: [{ streak: 0, x: 1 }, { streak: 3, x: 1.5 }, { streak: 5, x: 2 }, { streak: 8, x: 3 }],
+    streakBonusEvery: 5, streakBonus: { sanity: 5 },   // every 5-in-a-row gives a little Sanity
+    reward: { sanityBase: 3, sanityPerCorrect: 2, compliancePerCorrect: 1 },
+    // difficulty mix by shift day (weights; the nearest available difficulty is used if one runs out)
+    difficultyByDay: [
+      { fromDay: 1, mix: { 1: 0.8, 2: 0.2, 3: 0 } },
+      { fromDay: 3, mix: { 1: 0.5, 2: 0.35, 3: 0.15 } },
+      { fromDay: 6, mix: { 1: 0.3, 2: 0.4, 3: 0.3 } },
+    ],
+  },
 
   // Mini-games (the office is paused while you play)
   minigames: {
@@ -445,7 +485,7 @@ const CONFIG = {
   audio: { volume: 0.35, music: true, musicVolume: 0.4, bpm: 124, dangerTempo: 1.25 },
   fx: { restartLockMs: 900 },
   storageKeys: { hi: 'drugSafetySim.hiScore', muted: 'drugSafetySim.muted', board: 'drugSafetySim.board',
-                 player: 'drugSafetySim.playerName', playerId: 'drugSafetySim.playerId' },
+                 player: 'drugSafetySim.playerName', playerId: 'drugSafetySim.playerId', trivia: 'drugSafetySim.triviaBag' },
 };
 
 /* =====================================================================
@@ -534,7 +574,7 @@ const CONTENT = {
             { text: 'Can I decline?', effects: { sanity: 3 },  reply: 'You can. The calendar will remember.' } ] },
       ],
       scold: {
-        late:    { effects: { sanity: -6 }, lines: ["Day 15 was yesterday. Can we talk about 'timelines'?", 'A late case! Somewhere, a regulator just felt a disturbance.', "Late submission. I'll need a deviation. And a hug."] },
+        late:    { effects: { sanity: -4 }, lines: ["Day 15 was yesterday. Can we talk about 'timelines'?", 'A late case! Somewhere, a regulator just felt a disturbance.', "Late submission. I'll need a deviation. And a hug."] },
         qc:      { effects: { sanity: -5 }, lines: ["QC sent it back. They said the narrative 'reads like a haiku'.", "QC bounce. Apparently 'patient felt bad' is not a narrative.", 'QC found 3 issues. One of them is the font.'] },
         break:   { effects: { sanity: -4, compliance: -2 }, lines: ["Long break? The inbox didn't take one.", 'The sofa is lovely, I know. The cases are not.', 'Is this a break or a sabbatical?'] },
         meeting: { effects: { sanity: -4 }, lines: ['You missed the meeting. We made decisions. About you.', 'Missed training! The read-and-sign now reads YOU.'] },
@@ -744,11 +784,11 @@ const CONTENT = {
     { id: 'signal', type: 'meeting', title: 'SIGNAL DETECTION MEETING! Get to the meeting room.',
       startSay: 'Sitting down. Is that a signal or just my stomach?',
       attend: { energy: -6, sanity: -3, compliance: 6 }, endSay: 'Signal refuted. Meeting confirmed as a risk.',
-      skip: { compliance: -12 }, skipSay: 'I missed the signal meeting. That is a signal.' },
+      skip: { compliance: -8 }, skipSay: 'I missed the signal meeting. That is a signal.' },
     { id: 'training', type: 'meeting', title: 'SOP READ-AND-SIGN TRAINING! Get to the meeting room.',
       startSay: 'Slide 1 of 94. Here we go.',
       attend: { energy: -4, sanity: -5, compliance: 8 }, endSay: 'Signed. Read? Also yes. Mostly.',
-      skip: { compliance: -12 }, skipSay: 'Training overdue. The LMS has sent a sternly worded email.' },
+      skip: { compliance: -8 }, skipSay: 'Training overdue. The LMS has sent a sternly worded email.' },
   ],
 
   props: {
@@ -812,6 +852,692 @@ const CONTENT = {
     overload:   { title: 'SUSAR: SERIOUS UNEXPECTED SUSPECTED ADVERSE REACTION', text: 'Suspect product: coffee. Dechallenge: refused.', color: '#ff3b3b', glow: 'red' },
   },
 };
+
+/* =====================================================================
+   PV TRIVIA QUESTION BANK (played on the arcade cabinet in the break area)
+
+   HOW TO ADD YOUR OWN QUESTIONS — copy one of these and paste it anywhere in the list:
+
+   Multiple choice (4 options, answer = index 0-3 of the correct option; options are shuffled on screen):
+     { id: 'my-001', cat: 'case', diff: 1, type: 'mc',
+       q: "Question text?",
+       options: ["Correct or wrong", "Option", "Option", "Option"], answer: 0,
+       why: "One-line 'Did you know?' shown after answering." },
+
+   True or False (answer = true or false):
+     { id: 'my-002', cat: 'meddra', diff: 2, type: 'tf',
+       q: "True or False: statement.", answer: true,
+       why: "Explanation." },
+
+   Odd one out (4 options, answer = index of the one that does NOT belong):
+     { id: 'my-003', cat: 'signal', diff: 3, type: 'odd',
+       q: "Odd one out: which is NOT ...?",
+       options: ["A", "B", "C", "D"], answer: 3,
+       why: "Explanation." },
+
+   Rules: `id` must be unique and never reused (it is how the no-repeat bag remembers what you've seen).
+   cat: case | timelines | meddra | aggregate | signal | regs | history | office      diff: 1 easy · 2 medium · 3 hard
+   Optional `review: true` flags a question whose wording/accuracy should be double-checked by a PV expert.
+   Use double quotes for text so apostrophes are safe. Fictional/generic content only (no product or colleague names).
+   ===================================================================== */
+CONTENT.triviaCategories = {
+  case: 'CASE PROCESSING', timelines: 'EXPEDITED REPORTING', meddra: 'MEDDRA', aggregate: 'AGGREGATE & RISK MGMT',
+  signal: 'SIGNAL DETECTION', regs: 'REGULATIONS', history: 'PV HISTORY', office: 'OFFICE LIFE',
+};
+CONTENT.minigames.trivia = {
+  title: 'PV TRIVIA',
+  intro: 'Seven questions from the whole world of pharmacovigilance. Streaks multiply your score. No question repeats until you have seen them all.',
+  results: ['PERFECT! The arcade cabinet bows to you.', 'Solid PV knowledge. The QPPV would be proud.', 'Game over. The learning curve, however, is going up.'],
+};
+CONTENT.triviaBank = [
+  // ---------------- CASE PROCESSING BASICS (25) ----------------
+  { id: 'case-001', cat: 'case', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT one of the four minimum criteria for a valid ICSR?",
+    options: ["Identifiable reporter", "Identifiable patient", "Suspect product", "Causality assessment"], answer: 3,
+    why: "A valid case needs a reporter, a patient, a suspect product and an adverse event. Causality comes later." },
+  { id: 'case-002', cat: 'case', diff: 1, type: 'mc',
+    q: "What is 'Day 0' for a spontaneous case?",
+    options: ["The day anyone in the company first receives the minimum criteria", "The day the case is entered in the database",
+      "The day medical review is completed", "The day the first follow-up arrives"], answer: 0,
+    why: "The clock starts when the company first has the minimum information, whoever received it." },
+  { id: 'case-003', cat: 'case', diff: 2, type: 'odd',
+    q: "Odd one out: which is NOT an ICH E2A seriousness criterion?",
+    options: ["Life-threatening", "Congenital anomaly/birth defect", "Severe in intensity", "Requires or prolongs hospitalisation"], answer: 2,
+    why: "'Severe' describes intensity. A severe headache can still be non-serious." },
+  { id: 'case-004', cat: 'case', diff: 1, type: 'tf',
+    q: "True or False: in pharmacovigilance, 'serious' and 'severe' mean the same thing.", answer: false,
+    why: "Serious is about outcome (death, hospitalisation...). Severe is about intensity." },
+  { id: 'case-005', cat: 'case', diff: 1, type: 'mc',
+    q: "For a marketed product, expectedness is usually assessed against:",
+    options: ["The product information (e.g. SmPC or label)", "The case narrative", "The latest PSUR", "The reporter's opinion"], answer: 0,
+    why: "An event is expected if it is consistent with the reference product information." },
+  { id: 'case-006', cat: 'case', diff: 2, type: 'mc',
+    q: "For an investigational product in a clinical trial, expectedness is assessed against:",
+    options: ["The Reference Safety Information (often in the Investigator's Brochure)", "The study protocol title",
+      "The DSUR from last year", "The patient information leaflet of a different product"], answer: 0,
+    why: "In trials, the RSI (usually a section of the IB) defines what is expected." },
+  { id: 'case-007', cat: 'case', diff: 1, type: 'tf',
+    q: "True or False: by definition, an adverse event (AE) means the drug caused it.", answer: false,
+    why: "An AE is any untoward medical occurrence. It does not need to have a causal relationship." },
+  { id: 'case-008', cat: 'case', diff: 2, type: 'mc',
+    q: "What turns an adverse event into an adverse drug reaction (ADR)?",
+    options: ["A reasonable possibility of a causal relationship to the drug", "A serious outcome",
+      "The event being unexpected", "A report from a physician"], answer: 0,
+    why: "ADR = at least a reasonable possibility that the drug caused the event." },
+  { id: 'case-009', cat: 'case', diff: 1, type: 'mc',
+    q: "Which of these makes a case serious?",
+    options: ["The patient was hospitalised because of the event", "The event lasted three days",
+      "The reporter was a pharmacist", "The event was unexpected"], answer: 0,
+    why: "Hospitalisation (or prolongation of it) is a seriousness criterion. Duration and reporter type are not." },
+  { id: 'case-010', cat: 'case', diff: 2, type: 'tf',
+    q: "True or False: prolonging an existing hospitalisation can make an event serious.", answer: true,
+    why: "'Requires inpatient hospitalisation or prolongation of existing hospitalisation' is a seriousness criterion." },
+  { id: 'case-011', cat: 'case', diff: 2, type: 'mc',
+    q: "What is an 'important medical event' in seriousness terms?",
+    options: ["An event that may jeopardise the patient or need intervention to prevent a serious outcome, based on medical judgement",
+      "Any event reported by a doctor", "Any event listed in the label", "Any event that happens in hospital"], answer: 0,
+    why: "Medical judgement can make an event serious even without death, hospitalisation, etc." },
+  { id: 'case-012', cat: 'case', diff: 2, type: 'odd',
+    q: "Odd one out: which is NOT needed for a case to be valid?",
+    options: ["An identifiable patient", "A suspect product", "An adverse event", "The patient's full date of birth"], answer: 3,
+    why: "Initials, age or sex can be enough to make a patient identifiable." },
+  { id: 'case-013', cat: 'case', diff: 1, type: 'tf',
+    q: "True or False: a patient can be 'identifiable' from details such as initials, age or sex.", answer: true,
+    why: "One or more identifiers is enough. A full name is not required (and often not allowed)." },
+  { id: 'case-014', cat: 'case', diff: 1, type: 'mc',
+    q: "A consumer reports that 'someone at my gym' got a rash after a tablet. Why is this not yet a valid case?",
+    options: ["There is no identifiable patient", "Consumers cannot report adverse events", "A rash is not an adverse event", "The report is too short"], answer: 0,
+    why: "'Someone' is not identifiable. Follow up to try to get patient details." },
+  { id: 'case-015', cat: 'case', diff: 1, type: 'mc',
+    q: "A report is missing one of the minimum criteria. What should you do?",
+    options: ["Follow up to try to obtain the missing information", "Submit it as an expedited case anyway",
+      "Delete it immediately", "Invent the missing detail"], answer: 0,
+    why: "Keep it on file and follow up. It becomes a valid case once the minimum criteria are met." },
+  { id: 'case-016', cat: 'case', diff: 2, type: 'tf',
+    q: "True or False: an event that is listed, but reported with greater severity than described, can be considered unexpected.", answer: true,
+    why: "Unexpected covers events whose nature, severity or specificity is not consistent with the reference information." },
+  { id: 'case-017', cat: 'case', diff: 3, type: 'mc', review: true,
+    q: "A labelled event is reported with a fatal outcome, but the label does not mention fatal outcomes. For expectedness it is generally treated as:",
+    options: ["Unexpected", "Expected", "Non-serious", "Not assessable"], answer: 0,
+    why: "A fatal outcome adds significant information on severity, so it is usually considered unexpected." },
+  { id: 'case-018', cat: 'case', diff: 1, type: 'mc',
+    q: "Who can report a spontaneous case?",
+    options: ["Healthcare professionals and consumers/patients", "Only physicians", "Only pharmacists", "Only regulators"], answer: 0,
+    why: "Anyone can report. Consumer reports are valid spontaneous reports too." },
+  { id: 'case-019', cat: 'case', diff: 2, type: 'tf',
+    q: "True or False: a report from a solicited source, such as a patient support programme, is a spontaneous report.", answer: false,
+    why: "Solicited reports come from organised data collection and are handled more like study reports." },
+  { id: 'case-020', cat: 'case', diff: 2, type: 'mc',
+    q: "For a spontaneous report, causality is generally:",
+    options: ["Presumed possible, because the reporter suspects the drug", "Always assumed unrelated",
+      "Only assessed by regulators", "Irrelevant for reporting"], answer: 0,
+    why: "A spontaneous report implies suspected causality by the reporter." },
+  { id: 'case-021', cat: 'case', diff: 1, type: 'mc',
+    q: "Which finding supports a causal relationship?",
+    options: ["Positive dechallenge: the event improves when the drug is stopped", "The event started before the first dose",
+      "The patient's condition explains the event", "The reporter is unsure what happened"], answer: 0,
+    why: "Dechallenge and rechallenge information are classic causality clues." },
+  { id: 'case-022', cat: 'case', diff: 1, type: 'tf',
+    q: "True or False: a 'positive rechallenge' means the event came back when the drug was restarted.", answer: true,
+    why: "Recurrence on re-exposure is strong evidence for causality." },
+  { id: 'case-023', cat: 'case', diff: 2, type: 'mc',
+    q: "The WHO-UMC causality system uses categories such as:",
+    options: ["Certain, probable, possible, unlikely", "Mild, moderate, severe", "Serious, non-serious", "Expected, unexpected"], answer: 0,
+    why: "WHO-UMC also has 'conditional/unclassified' and 'unassessable/unclassifiable'." },
+  { id: 'case-024', cat: 'case', diff: 3, type: 'mc',
+    q: "The Naranjo algorithm assesses causality using:",
+    options: ["A scored questionnaire of about ten questions", "Disproportionality in a spontaneous database",
+      "Standardised MedDRA Queries", "The benefit-risk section of a PBRER"], answer: 0,
+    why: "Naranjo scores answers to around 10 questions into definite, probable, possible or doubtful." },
+  { id: 'case-025', cat: 'case', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT a 'special situation' usually collected even without an adverse event?",
+    options: ["Exposure during pregnancy", "Overdose", "Medication error", "Taking the drug exactly as prescribed with no problems"], answer: 3,
+    why: "Pregnancy exposure, overdose, misuse and medication errors are collected even without an AE." },
+
+  // ---------------- EXPEDITED REPORTING & ICSR BASICS (20) ----------------
+  { id: 'time-001', cat: 'timelines', diff: 2, type: 'mc',
+    q: "Under ICH E2A, a fatal or life-threatening SUSAR from a clinical trial must reach regulators within:",
+    options: ["7 calendar days", "15 calendar days", "30 calendar days", "90 calendar days"], answer: 0,
+    why: "7 days for the initial report, with a complete report within 8 more days. Other SUSARs: 15 days." },
+  { id: 'time-002', cat: 'timelines', diff: 1, type: 'tf',
+    q: "True or False: in the EU, serious ICSRs must be submitted within 15 days of receipt.", answer: true,
+    why: "Serious: 15 days. Non-serious: 90 days (EU GVP Module VI)." },
+  { id: 'time-003', cat: 'timelines', diff: 2, type: 'mc',
+    q: "Under ICH E2A, a SUSAR that is NOT fatal or life-threatening must be reported within:",
+    options: ["15 calendar days", "7 calendar days", "30 calendar days", "In the next annual report"], answer: 0,
+    why: "7 days only applies to fatal or life-threatening SUSARs." },
+  { id: 'time-004', cat: 'timelines', diff: 1, type: 'tf',
+    q: "True or False: expedited reporting timelines count calendar days, not working days.", answer: true,
+    why: "Weekends and holidays count. The 15-day clock does not take a day off." },
+  { id: 'time-005', cat: 'timelines', diff: 2, type: 'mc',
+    q: "In the EU, non-serious ICSRs are submitted to EudraVigilance within:",
+    options: ["90 days", "15 days", "7 days", "1 year"], answer: 0,
+    why: "Non-serious EU ICSRs: 90 days from receipt." },
+  { id: 'time-006', cat: 'timelines', diff: 1, type: 'mc',
+    q: "What does ICSR stand for?",
+    options: ["Individual Case Safety Report", "International Clinical Safety Review", "Internal Case Submission Record", "Individual Clinical Study Result"], answer: 0,
+    why: "One ICSR = one patient's adverse event report." },
+  { id: 'time-007', cat: 'timelines', diff: 2, type: 'mc',
+    q: "Which ICH guideline defines the electronic ICSR format and data elements?",
+    options: ["E2B(R3)", "E2C(R2)", "E2F", "E6(R2)"], answer: 0,
+    why: "E2B(R3) sets out the data elements and message format for electronic ICSRs." },
+  { id: 'time-008', cat: 'timelines', diff: 2, type: 'tf',
+    q: "True or False: significant follow-up information starts a new Day 0 for reporting that follow-up.", answer: true,
+    why: "Relevant follow-up has its own clock, starting when it is received." },
+  { id: 'time-009', cat: 'timelines', diff: 1, type: 'mc',
+    q: "Where are ICSRs submitted electronically in the EU?",
+    options: ["EudraVigilance", "FAERS", "VigiBase", "MedWatch"], answer: 0,
+    why: "EudraVigilance is the EU system managed by the EMA." },
+  { id: 'time-010', cat: 'timelines', diff: 2, type: 'mc',
+    q: "In the US, postmarketing adverse experiences that are both serious and unexpected are sent to FDA as:",
+    options: ["15-day Alert reports", "7-day Alert reports", "Annual reports only", "DSURs"], answer: 0,
+    why: "Serious and unexpected postmarketing cases: 15-day Alert reports." },
+  { id: 'time-011', cat: 'timelines', diff: 1, type: 'tf',
+    q: "True or False: FDA's database of adverse event reports for marketed drugs is called FAERS.", answer: true,
+    why: "FAERS = FDA Adverse Event Reporting System." },
+  { id: 'time-012', cat: 'timelines', diff: 2, type: 'mc',
+    q: "Which programme do US healthcare professionals and consumers use to report voluntarily to FDA?",
+    options: ["MedWatch", "Yellow Card", "EudraVigilance", "CIOMS VI"], answer: 0,
+    why: "MedWatch is FDA's voluntary safety reporting programme." },
+  { id: 'time-013', cat: 'timelines', diff: 2, type: 'mc',
+    q: "Which classic paper form is used for international reporting of individual cases?",
+    options: ["CIOMS I", "CIOMS VI", "PBRER", "SmPC"], answer: 0,
+    why: "The CIOMS I form is the standard paper format for a single suspected ADR report." },
+  { id: 'time-014', cat: 'timelines', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT a standard section of an ICSR?",
+    options: ["Patient information", "Suspect drug information", "Reaction/event information", "The reporter's favourite colour"], answer: 3,
+    why: "Reporter details are collected. Their colour preferences, sadly, are not." },
+  { id: 'time-015', cat: 'timelines', diff: 1, type: 'tf',
+    q: "True or False: you must wait for the full medical history before reporting a valid serious case.", answer: false,
+    why: "Report on time once the minimum criteria are met, then send follow-up." },
+  { id: 'time-016', cat: 'timelines', diff: 1, type: 'mc',
+    q: "What does SUSAR stand for?",
+    options: ["Suspected Unexpected Serious Adverse Reaction", "Serious Unlisted Safety Adverse Report",
+      "Suspected Unusual Study Adverse Result", "Safety Update Summary for Annual Review"], answer: 0,
+    why: "SUSARs are the clinical trial cases that need expedited reporting." },
+  { id: 'time-017', cat: 'timelines', diff: 1, type: 'mc',
+    q: "In EU pharmacovigilance, what is the 'MAH'?",
+    options: ["Marketing Authorisation Holder", "Medical Adverse Handler", "Main Assessment Hub", "Monthly Aggregate Headline"], answer: 0,
+    why: "The MAH holds the licence and carries the pharmacovigilance obligations." },
+  { id: 'time-018', cat: 'timelines', diff: 3, type: 'tf',
+    q: "True or False: for a SUSAR in a blinded trial, the sponsor generally breaks the blind for that specific patient before reporting.", answer: true,
+    why: "ICH E2A recommends unblinding the individual case, while keeping the blind for those analysing the study." },
+  { id: 'time-019', cat: 'timelines', diff: 3, type: 'mc',
+    q: "What is a 'nullification' ICSR used for?",
+    options: ["Cancelling a previously submitted case, e.g. a duplicate or invalid report", "Upgrading a case to serious",
+      "Adding follow-up information", "Asking the regulator for a signal review"], answer: 0,
+    why: "Nullification tells the receiver to disregard a case that should not have been sent." },
+  { id: 'time-020', cat: 'timelines', diff: 2, type: 'mc', review: true,
+    q: "For a case found in the scientific literature, Day 0 is generally:",
+    options: ["When the company becomes aware of a publication containing the minimum criteria", "The publication's print date",
+      "The date the study started", "When the author replies to a query"], answer: 0,
+    why: "Awareness of a publication meeting the minimum criteria starts the clock, just like any other source." },
+
+  // ---------------- MEDDRA (20) ----------------
+  { id: 'meddra-001', cat: 'meddra', diff: 1, type: 'mc',
+    q: "Which MedDRA level sits closest to the reporter's own words?",
+    options: ["LLT", "PT", "HLT", "SOC"], answer: 0,
+    why: "Lowest Level Terms capture how events are actually reported. Each LLT links to one PT." },
+  { id: 'meddra-002', cat: 'meddra', diff: 2, type: 'tf',
+    q: "True or False: a PT can be linked to more than one SOC, but has exactly one primary SOC.", answer: true,
+    why: "MedDRA is multiaxial: one primary SOC, plus possible secondary SOCs." },
+  { id: 'meddra-003', cat: 'meddra', diff: 1, type: 'mc',
+    q: "How many levels does the MedDRA hierarchy have?",
+    options: ["5", "3", "4", "7"], answer: 0,
+    why: "SOC, HLGT, HLT, PT and LLT." },
+  { id: 'meddra-004', cat: 'meddra', diff: 1, type: 'mc',
+    q: "What is the top level of the MedDRA hierarchy?",
+    options: ["System Organ Class (SOC)", "Preferred Term (PT)", "Lowest Level Term (LLT)", "High Level Term (HLT)"], answer: 0,
+    why: "SOCs group terms by body system, aetiology or purpose." },
+  { id: 'meddra-005', cat: 'meddra', diff: 2, type: 'mc',
+    q: "Which order goes from broadest to most specific?",
+    options: ["SOC > HLGT > HLT > PT > LLT", "SOC > HLT > HLGT > PT > LLT", "LLT > PT > HLT > HLGT > SOC", "PT > SOC > LLT > HLT > HLGT"], answer: 0,
+    why: "System Organ Class, High Level Group Term, High Level Term, Preferred Term, Lowest Level Term." },
+  { id: 'meddra-006', cat: 'meddra', diff: 1, type: 'tf',
+    q: "True or False: MedDRA stands for Medical Dictionary for Regulatory Activities.", answer: true,
+    why: "It was developed under ICH for regulatory communication." },
+  { id: 'meddra-007', cat: 'meddra', diff: 2, type: 'mc',
+    q: "What does HLGT stand for?",
+    options: ["High Level Group Term", "Higher Level General Term", "High Level Grouped Toxicity", "Hierarchical Level Group Tag"], answer: 0,
+    why: "HLGTs sit between SOCs and HLTs." },
+  { id: 'meddra-008', cat: 'meddra', diff: 2, type: 'mc',
+    q: "Which MedDRA level is most often used for counting and analysing events?",
+    options: ["Preferred Term (PT)", "Lowest Level Term (LLT)", "System Organ Class (SOC) only", "None, analysis uses free text"], answer: 0,
+    why: "PTs represent a single medical concept, so they are the usual level for retrieval and analysis." },
+  { id: 'meddra-009', cat: 'meddra', diff: 2, type: 'tf',
+    q: "True or False: every LLT is linked to exactly one PT.", answer: true,
+    why: "LLTs are synonyms, lexical variants or more specific versions of a single PT." },
+  { id: 'meddra-010', cat: 'meddra', diff: 2, type: 'mc',
+    q: "What are SMQs?",
+    options: ["Standardised MedDRA Queries: sets of terms for a medical condition of interest", "Serious Medical Questions for reporters",
+      "Special MedDRA Qualifiers for severity", "Summary Monthly Quality reports"], answer: 0,
+    why: "SMQs help retrieve all cases that may relate to a condition, e.g. liver injury." },
+  { id: 'meddra-011', cat: 'meddra', diff: 2, type: 'mc',
+    q: "How often are new MedDRA versions released?",
+    options: ["Twice a year", "Every month", "Every five years", "Only when a regulator asks"], answer: 0,
+    why: "A major (March) and a minor (September) release each year." },
+  { id: 'meddra-012', cat: 'meddra', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT a MedDRA hierarchy level?",
+    options: ["PT", "HLT", "LLT", "MLT"], answer: 3,
+    why: "There is no 'Middle Level Term'. The five levels are SOC, HLGT, HLT, PT, LLT." },
+  { id: 'meddra-013', cat: 'meddra', diff: 1, type: 'mc',
+    q: "A reporter writes 'felt like throwing up, but didn't'. The best term is:",
+    options: ["Nausea", "Vomiting", "Dyspepsia", "Abdominal pain"], answer: 0,
+    why: "No vomiting happened, so code what was actually reported: nausea." },
+  { id: 'meddra-014', cat: 'meddra', diff: 1, type: 'tf',
+    q: "True or False: when coding, pick the term that best reflects what was reported, not your own guess at a diagnosis.", answer: true,
+    why: "Code the reporter's words faithfully. Don't add or subtract information." },
+  { id: 'meddra-015', cat: 'meddra', diff: 3, type: 'mc',
+    q: "Which ICH-endorsed document gives guidance on choosing MedDRA terms when coding?",
+    options: ["MedDRA Term Selection: Points to Consider", "ICH E6 Good Clinical Practice", "The PBRER template", "The CIOMS I form instructions"], answer: 0,
+    why: "MTS:PTC gives practical coding advice; a companion document covers data retrieval." },
+  { id: 'meddra-016', cat: 'meddra', diff: 2, type: 'mc',
+    q: "For a PT describing an infection, which SOC is normally the primary SOC?",
+    options: ["Infections and infestations", "General disorders and administration site conditions", "Investigations", "Immune system disorders"], answer: 0,
+    why: "Infection terms have 'Infections and infestations' as their primary SOC." },
+  { id: 'meddra-017', cat: 'meddra', diff: 3, type: 'tf', review: true,
+    q: "True or False: PTs for congenital conditions have 'Congenital, familial and genetic disorders' as their primary SOC.", answer: true,
+    why: "Congenital terms take this SOC as primary, with the relevant body-system SOC as secondary." },
+  { id: 'meddra-018', cat: 'meddra', diff: 3, type: 'mc',
+    q: "What is a 'non-current' LLT?",
+    options: ["An outdated or ambiguous term kept for history but not used for new coding", "A term added in the latest version",
+      "A term only used in clinical trials", "A PT with no SOC"], answer: 0,
+    why: "Non-current LLTs stay in the dictionary so old data still maps, but you shouldn't choose them." },
+  { id: 'meddra-019', cat: 'meddra', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT a MedDRA SOC?",
+    options: ["Cardiac disorders", "Nervous system disorders", "Psychiatric disorders", "Coffee deficiency disorders"], answer: 3,
+    why: "Despite strong lobbying from the PV department, 'Coffee deficiency disorders' is not a SOC." },
+  { id: 'meddra-020', cat: 'meddra', diff: 2, type: 'mc',
+    q: "Who maintains and distributes MedDRA?",
+    options: ["The MedDRA MSSO, under ICH", "The WHO", "Each national regulator separately", "The EMA alone"], answer: 0,
+    why: "The Maintenance and Support Services Organization (MSSO) maintains MedDRA for ICH." },
+
+  // ---------------- AGGREGATE REPORTS & RISK MANAGEMENT (20) ----------------
+  { id: 'agg-001', cat: 'aggregate', diff: 2, type: 'mc',
+    q: "Which ICH guideline describes the PBRER?",
+    options: ["E2C(R2)", "E2B(R3)", "E2F", "E6"], answer: 0,
+    why: "E2C(R2) is the PBRER. E2F covers the DSUR, and E2B(R3) the electronic ICSR format." },
+  { id: 'agg-002', cat: 'aggregate', diff: 1, type: 'mc',
+    q: "What does PBRER stand for?",
+    options: ["Periodic Benefit-Risk Evaluation Report", "Post-Batch Release Evaluation Record", "Periodic Benefit Review of Emerging Risks", "Pharmacovigilance Baseline Risk Estimate Report"], answer: 0,
+    why: "It evaluates the overall benefit-risk balance of a marketed product." },
+  { id: 'agg-003', cat: 'aggregate', diff: 1, type: 'mc',
+    q: "What does DSUR stand for?",
+    options: ["Development Safety Update Report", "Drug Safety Usage Review", "Daily Signal Update Report", "Development Study Unblinding Record"], answer: 0,
+    why: "The DSUR is the annual safety report for products in clinical development." },
+  { id: 'agg-004', cat: 'aggregate', diff: 1, type: 'mc',
+    q: "How often is a DSUR usually submitted?",
+    options: ["Annually", "Monthly", "Every five years", "Only at approval"], answer: 0,
+    why: "One DSUR per year, covering the reporting period since the last one." },
+  { id: 'agg-005', cat: 'aggregate', diff: 2, type: 'mc',
+    q: "Which ICH guideline covers the DSUR?",
+    options: ["E2F", "E2C(R2)", "E2E", "E2A"], answer: 0,
+    why: "E2F = DSUR. E2E = pharmacovigilance planning." },
+  { id: 'agg-006', cat: 'aggregate', diff: 3, type: 'mc',
+    q: "The DSUR reporting period is based on the:",
+    options: ["Development International Birth Date (DIBD)", "International Birth Date (IBD)", "Date of first sale", "End of phase III"], answer: 0,
+    why: "The DIBD is the date of first authorisation to conduct a clinical trial anywhere in the world." },
+  { id: 'agg-007', cat: 'aggregate', diff: 2, type: 'tf',
+    q: "True or False: the PBRER focuses on the overall benefit-risk balance, not just a listing of cases.", answer: true,
+    why: "The move from PSUR to PBRER put benefit-risk evaluation at the centre." },
+  { id: 'agg-008', cat: 'aggregate', diff: 1, type: 'mc',
+    q: "In the EU, what does RMP stand for?",
+    options: ["Risk Management Plan", "Regulatory Monitoring Procedure", "Reported Medication Problem", "Routine Marketing Programme"], answer: 0,
+    why: "The RMP describes known and potential risks and how they are managed." },
+  { id: 'agg-009', cat: 'aggregate', diff: 2, type: 'mc',
+    q: "In the US, what is the programme FDA can require when labelling alone is not enough to manage a serious risk?",
+    options: ["REMS", "PSMF", "RMP", "PADER"], answer: 0,
+    why: "REMS = Risk Evaluation and Mitigation Strategy." },
+  { id: 'agg-010', cat: 'aggregate', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT a typical part of an EU RMP?",
+    options: ["Safety specification", "Pharmacovigilance plan", "Risk minimisation measures", "Quarterly sales forecast"], answer: 3,
+    why: "RMPs cover safety specification, pharmacovigilance plan and risk minimisation. Sales are someone else's problem." },
+  { id: 'agg-011', cat: 'aggregate', diff: 2, type: 'mc',
+    q: "In an RMP, an 'important identified risk' is a risk:",
+    options: ["With adequate evidence of an association with the product", "That is suspected but not confirmed",
+      "Where information is missing", "That only occurs in animals"], answer: 0,
+    why: "Suspected-but-unconfirmed risks are 'potential risks'. Knowledge gaps are 'missing information'." },
+  { id: 'agg-012', cat: 'aggregate', diff: 2, type: 'tf',
+    q: "True or False: 'missing information' in an RMP means gaps in knowledge, for example use in pregnancy.", answer: true,
+    why: "Missing information covers populations or situations that haven't been studied enough." },
+  { id: 'agg-013', cat: 'aggregate', diff: 2, type: 'mc',
+    q: "Additional risk minimisation measures can include:",
+    options: ["Educational materials or a controlled access programme", "A new product logo", "A price reduction", "Faster shipping"], answer: 0,
+    why: "Routine measures are the label and pack. Additional ones go further: guides, checklists, restricted access." },
+  { id: 'agg-014', cat: 'aggregate', diff: 2, type: 'mc',
+    q: "What is the International Birth Date (IBD)?",
+    options: ["The date of the first marketing authorisation anywhere in the world", "The date of the first clinical trial",
+      "The date the product was invented", "The date of the first PSUR"], answer: 0,
+    why: "Periodic report schedules are usually tied to the IBD." },
+  { id: 'agg-015', cat: 'aggregate', diff: 3, type: 'tf',
+    q: "True or False: in the EU, PSUR submission frequencies and dates for many substances are set in the EURD list.", answer: true,
+    why: "The EURD list harmonises PSUR dates across products with the same active substance." },
+  { id: 'agg-016', cat: 'aggregate', diff: 2, type: 'mc',
+    q: "The Data Lock Point (DLP) of a periodic report is:",
+    options: ["The cut-off date for data included in the report", "The date the report is submitted",
+      "The date the database was locked for maintenance", "The deadline for QC comments"], answer: 0,
+    why: "Data up to the DLP goes into the report. Anything later waits for the next one." },
+  { id: 'agg-017', cat: 'aggregate', diff: 1, type: 'mc',
+    q: "What did PSUR originally stand for?",
+    options: ["Periodic Safety Update Report", "Product Safety Usage Review", "Post-Study Update Record", "Pharmacovigilance Summary of Unexpected Reactions"], answer: 0,
+    why: "In the EU the PSUR now follows the PBRER format, but the name stuck." },
+  { id: 'agg-018', cat: 'aggregate', diff: 2, type: 'odd',
+    q: "Odd one out: which is NOT an aggregate (periodic) report?",
+    options: ["PBRER", "DSUR", "PADER", "CIOMS I form"], answer: 3,
+    why: "A CIOMS I form describes a single case. The others summarise many." },
+  { id: 'agg-019', cat: 'aggregate', diff: 3, type: 'mc',
+    q: "A PADER is a periodic report submitted to:",
+    options: ["The US FDA", "The EMA", "The WHO", "Every national regulator worldwide"], answer: 0,
+    why: "PADER = Periodic Adverse Drug Experience Report, a US postmarketing requirement." },
+  { id: 'agg-020', cat: 'aggregate', diff: 1, type: 'tf',
+    q: "True or False: aggregate reports look at many cases together to see the bigger safety picture.", answer: true,
+    why: "Single cases tell stories. Aggregate analysis finds patterns." },
+
+  // ---------------- SIGNAL DETECTION (18) ----------------
+  { id: 'signal-001', cat: 'signal', diff: 2, type: 'mc',
+    q: "A PRR well above 1 for a drug-event pair means:",
+    options: ["The event is reported proportionally more often with this drug than with others", "The drug causes the event",
+      "The event is rare", "The label must be updated immediately"], answer: 0,
+    why: "Disproportionality is a statistical flag that needs clinical evaluation. It is not proof of causation." },
+  { id: 'signal-002', cat: 'signal', diff: 1, type: 'mc',
+    q: "In pharmacovigilance, a 'signal' is:",
+    options: ["Information suggesting a new potentially causal association (or a new aspect of a known one) that needs checking",
+      "Any single adverse event report", "A confirmed risk that is already in the label", "An alert from the safety database server"], answer: 0,
+    why: "A signal is a hypothesis to investigate, not a conclusion." },
+  { id: 'signal-003', cat: 'signal', diff: 1, type: 'tf',
+    q: "True or False: a signal proves that the drug causes the event.", answer: false,
+    why: "Signals trigger assessment. Many are refuted after review." },
+  { id: 'signal-004', cat: 'signal', diff: 2, type: 'mc',
+    q: "What does ROR stand for in disproportionality analysis?",
+    options: ["Reporting Odds Ratio", "Relative Outcome Rate", "Risk Of Reaction", "Reported Onset Range"], answer: 0,
+    why: "ROR and PRR are the classic frequentist disproportionality measures." },
+  { id: 'signal-005', cat: 'signal', diff: 2, type: 'mc',
+    q: "Disproportionality analysis compares:",
+    options: ["How often an event is reported with a drug versus with all other drugs in the database", "Sales figures between products",
+      "Adverse event incidence in a randomised trial", "The number of labels mentioning an event"], answer: 0,
+    why: "It uses reporting proportions, not true incidence, because spontaneous data has no denominator." },
+  { id: 'signal-006', cat: 'signal', diff: 2, type: 'odd',
+    q: "Odd one out: which is NOT a disproportionality measure?",
+    options: ["PRR", "ROR", "Information Component (IC)", "LLT"], answer: 3,
+    why: "LLT is a MedDRA level. PRR, ROR and IC are statistical signal scores." },
+  { id: 'signal-007', cat: 'signal', diff: 3, type: 'mc',
+    q: "The Information Component (IC) is a Bayesian disproportionality measure best known from:",
+    options: ["The WHO-UMC and VigiBase", "The EU RMP template", "MedDRA SMQs", "ICH E6"], answer: 0,
+    why: "The IC comes from the BCPNN method used by the Uppsala Monitoring Centre." },
+  { id: 'signal-008', cat: 'signal', diff: 3, type: 'mc', review: true,
+    q: "EBGM and EB05 are scores from which family of methods?",
+    options: ["Empirical Bayes (e.g. the Multi-item Gamma Poisson Shrinker)", "Survival analysis", "Randomised trial design", "MedDRA coding rules"], answer: 0,
+    why: "Empirical Bayes 'shrinks' unstable estimates from small counts; used for example with FAERS data." },
+  { id: 'signal-009', cat: 'signal', diff: 2, type: 'tf',
+    q: "True or False: with very few reports, disproportionality estimates can be unstable.", answer: true,
+    why: "Small counts give wide confidence intervals, which is why thresholds often require a minimum number of cases." },
+  { id: 'signal-010', cat: 'signal', diff: 2, type: 'mc',
+    q: "What is 'stimulated reporting'?",
+    options: ["More reports caused by publicity or a safety communication, not by a real change in risk", "Reports from stimulant drugs",
+      "Reports requested by the company during a study", "Reports sent twice by mistake"], answer: 0,
+    why: "Media attention can inflate reporting and distort disproportionality." },
+  { id: 'signal-011', cat: 'signal', diff: 1, type: 'mc',
+    q: "What is usually the first step after a potential signal is detected?",
+    options: ["Validate it: check whether the evidence justifies further analysis", "Change the label immediately",
+      "Withdraw the product", "Delete the cases"], answer: 0,
+    why: "Signal management: detection, validation, analysis and prioritisation, assessment, then recommended action." },
+  { id: 'signal-012', cat: 'signal', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT a step in signal management?",
+    options: ["Detection", "Validation", "Assessment", "Decoration"], answer: 3,
+    why: "No matter how nice the slides are, decoration is not a GVP step." },
+  { id: 'signal-013', cat: 'signal', diff: 3, type: 'tf', review: true,
+    q: "True or False: 'masking' is when heavy reporting of one drug-event pair hides a disproportionality signal for other drugs.", answer: true,
+    why: "Frequently reported combinations inflate the background and can mask signals for other products." },
+  { id: 'signal-014', cat: 'signal', diff: 1, type: 'mc',
+    q: "Which EU database is used for signal detection on spontaneous reports?",
+    options: ["EudraVigilance", "ClinicalTrials.gov", "The EURD list", "The PSMF"], answer: 0,
+    why: "EudraVigilance data is monitored by MAHs and the EMA for signals." },
+  { id: 'signal-015', cat: 'signal', diff: 3, type: 'mc',
+    q: "In a 2x2 disproportionality table, cell 'a' counts reports with:",
+    options: ["The drug of interest AND the event of interest", "The drug but not the event",
+      "The event but not the drug", "Neither the drug nor the event"], answer: 0,
+    why: "PRR = [a/(a+b)] / [c/(c+d)], comparing the event share for the drug with all other drugs." },
+  { id: 'signal-016', cat: 'signal', diff: 1, type: 'tf',
+    q: "True or False: signals can also come from literature, clinical trials and observational studies, not only spontaneous reports.", answer: true,
+    why: "Any data source can generate a signal." },
+  { id: 'signal-017', cat: 'signal', diff: 2, type: 'mc',
+    q: "What is 'confounding by indication'?",
+    options: ["The disease being treated causes the event, not the drug", "The label indication is unclear",
+      "The drug is used off-label", "Two drugs have the same indication"], answer: 0,
+    why: "For example, a drug for heart failure 'associated' with heart failure hospitalisations." },
+  { id: 'signal-018', cat: 'signal', diff: 3, type: 'mc',
+    q: "A 'designated medical event' (DME) is:",
+    options: ["A rare, serious event often drug-related, worth attention even as a single case", "Any event designated by the reporter",
+      "An event listed in the SmPC", "A non-serious event of special interest"], answer: 0,
+    why: "Examples include severe skin reactions like Stevens-Johnson syndrome." },
+
+  // ---------------- REGULATIONS & GUIDELINES (20) ----------------
+  { id: 'regs-001', cat: 'regs', diff: 1, type: 'mc',
+    q: "In the EU, what does GVP stand for?",
+    options: ["Good Pharmacovigilance Practices", "General Vigilance Procedures", "Good Validation Principles", "Global Vaccine Programme"], answer: 0,
+    why: "GVP is a set of modules describing how pharmacovigilance is done in the EU." },
+  { id: 'regs-002', cat: 'regs', diff: 3, type: 'mc',
+    q: "Which EU GVP module covers the collection, management and submission of ICSRs?",
+    options: ["Module VI", "Module V", "Module IX", "Module I"], answer: 0,
+    why: "V = risk management systems, IX = signal management, I = pharmacovigilance systems." },
+  { id: 'regs-003', cat: 'regs', diff: 3, type: 'mc',
+    q: "Which EU GVP module covers risk management systems (RMPs)?",
+    options: ["Module V", "Module VI", "Module VII", "Module II"], answer: 0,
+    why: "Module V: risk management systems." },
+  { id: 'regs-004', cat: 'regs', diff: 3, type: 'mc',
+    q: "Which EU GVP module covers signal management?",
+    options: ["Module IX", "Module VI", "Module III", "Module X"], answer: 0,
+    why: "Module IX: signal management." },
+  { id: 'regs-005', cat: 'regs', diff: 1, type: 'mc',
+    q: "What is the QPPV?",
+    options: ["Qualified Person Responsible for Pharmacovigilance", "Quality Procedure for Pharmacovigilance Validation",
+      "Quarterly PV Performance Verification", "Qualified Pharmacy Product Vendor"], answer: 0,
+    why: "The QPPV is personally responsible for the MAH's pharmacovigilance system in the EU." },
+  { id: 'regs-006', cat: 'regs', diff: 2, type: 'tf',
+    q: "True or False: the EU QPPV must reside and operate in the EU/EEA.", answer: true,
+    why: "The QPPV must be based in the EU/EEA and be available 24/7." },
+  { id: 'regs-007', cat: 'regs', diff: 2, type: 'mc',
+    q: "What is the PSMF?",
+    options: ["Pharmacovigilance System Master File", "Periodic Safety Monitoring Form", "Product Safety Marketing File", "Post-Study Medical Follow-up"], answer: 0,
+    why: "The PSMF describes the MAH's whole pharmacovigilance system." },
+  { id: 'regs-008', cat: 'regs', diff: 2, type: 'mc',
+    q: "Which ICH guideline covers definitions and standards for expedited reporting in clinical trials?",
+    options: ["E2A", "E2C(R2)", "E2F", "E6"], answer: 0,
+    why: "E2A: Clinical Safety Data Management, Definitions and Standards for Expedited Reporting." },
+  { id: 'regs-009', cat: 'regs', diff: 2, type: 'mc',
+    q: "Which ICH guideline covers post-approval safety data management?",
+    options: ["E2D", "E2A", "E2F", "E8"], answer: 0,
+    why: "E2D covers definitions and standards for postmarketing expedited reporting." },
+  { id: 'regs-010', cat: 'regs', diff: 3, type: 'mc',
+    q: "Which ICH guideline is about pharmacovigilance planning?",
+    options: ["E2E", "E2B", "E2C", "E9"], answer: 0,
+    why: "E2E: Pharmacovigilance Planning, which is the basis for safety specifications and PV plans." },
+  { id: 'regs-011', cat: 'regs', diff: 2, type: 'mc',
+    q: "Which ICH guideline is Good Clinical Practice?",
+    options: ["E6", "E2A", "Q7", "M4"], answer: 0,
+    why: "E6 = GCP. The E2 series covers pharmacovigilance." },
+  { id: 'regs-012', cat: 'regs', diff: 1, type: 'tf',
+    q: "True or False: ICH guidelines aim to harmonise requirements across regions such as the EU, US and Japan.", answer: true,
+    why: "ICH = International Council for Harmonisation." },
+  { id: 'regs-013', cat: 'regs', diff: 2, type: 'mc',
+    q: "Which EMA committee is responsible for assessing safety issues and risk management of medicines?",
+    options: ["PRAC", "CHMP", "COMP", "PDCO"], answer: 0,
+    why: "PRAC handles pharmacovigilance. CHMP gives the overall opinion on authorisation." },
+  { id: 'regs-014', cat: 'regs', diff: 2, type: 'mc',
+    q: "What does PRAC stand for?",
+    options: ["Pharmacovigilance Risk Assessment Committee", "Periodic Report Approval Council", "Product Risk and Compliance", "Pharmacy Regulation Advisory Committee"], answer: 0,
+    why: "PRAC sits at the EMA." },
+  { id: 'regs-015', cat: 'regs', diff: 3, type: 'mc',
+    q: "Which US regulation sets out postmarketing adverse drug experience reporting for approved drugs?",
+    options: ["21 CFR 314.80", "21 CFR Part 11", "ICH E6", "EU GVP Module VI"], answer: 0,
+    why: "21 CFR 314.80 covers postmarketing reporting for NDA products." },
+  { id: 'regs-016', cat: 'regs', diff: 2, type: 'tf',
+    q: "True or False: 21 CFR Part 11 is about electronic records and electronic signatures.", answer: true,
+    why: "Part 11 is why every safety database has an audit trail." },
+  { id: 'regs-017', cat: 'regs', diff: 2, type: 'mc',
+    q: "Which Japanese agency works alongside the MHLW on drug review and safety?",
+    options: ["PMDA", "MHRA", "TGA", "ANVISA"], answer: 0,
+    why: "PMDA (Japan), MHRA (UK), TGA (Australia), ANVISA (Brazil)." },
+  { id: 'regs-018', cat: 'regs', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT a medicines regulator?",
+    options: ["EMA", "FDA", "PMDA", "MedDRA"], answer: 3,
+    why: "MedDRA is a terminology, not an agency." },
+  { id: 'regs-019', cat: 'regs', diff: 2, type: 'mc',
+    q: "In the EU, what does the black inverted triangle on product information mean?",
+    options: ["The medicine is under additional monitoring", "The medicine is being withdrawn",
+      "The medicine is for hospital use only", "The medicine has no side effects"], answer: 0,
+    why: "It encourages healthcare professionals and patients to report suspected adverse reactions." },
+  { id: 'regs-020', cat: 'regs', diff: 2, type: 'tf',
+    q: "True or False: a pharmacovigilance inspection can be routine or triggered by specific concerns.", answer: true,
+    why: "Inspections can be routine (risk-based schedule) or 'for cause'." },
+
+  // ---------------- PV HISTORY (13) ----------------
+  { id: 'hist-001', cat: 'history', diff: 1, type: 'mc',
+    q: "Which tragedy of the late 1950s and early 1960s led many countries to set up systematic adverse reaction reporting?",
+    options: ["The thalidomide birth defects", "The 1918 influenza pandemic", "The discovery of penicillin", "The Y2K bug"], answer: 0,
+    why: "Thalidomide, used in pregnancy, caused severe birth defects in thousands of babies." },
+  { id: 'hist-002', cat: 'history', diff: 1, type: 'mc',
+    q: "What was the main harm linked to thalidomide use in pregnancy?",
+    options: ["Severe limb malformations in babies", "Hair loss in mothers", "Hearing loss in adults", "Tooth discolouration"], answer: 0,
+    why: "Phocomelia (shortened or absent limbs) was the hallmark malformation." },
+  { id: 'hist-003', cat: 'history', diff: 1, type: 'mc',
+    q: "The UK started its spontaneous reporting scheme in 1964. What is it called?",
+    options: ["The Yellow Card Scheme", "The Blue Form Scheme", "The Green Card Scheme", "MedWatch"], answer: 0,
+    why: "Yellow Cards are still used by healthcare professionals and patients today." },
+  { id: 'hist-004', cat: 'history', diff: 2, type: 'mc',
+    q: "The Uppsala Monitoring Centre, which runs the WHO global database, is in which country?",
+    options: ["Sweden", "Switzerland", "Norway", "Netherlands"], answer: 0,
+    why: "Uppsala, Sweden: home of the WHO Collaborating Centre for International Drug Monitoring." },
+  { id: 'hist-005', cat: 'history', diff: 2, type: 'mc',
+    q: "In which year did the WHO Programme for International Drug Monitoring start?",
+    options: ["1968", "1928", "1998", "2012"], answer: 0,
+    why: "It began in 1968 as a pilot with a handful of countries. Today well over 100 take part." },
+  { id: 'hist-006', cat: 'history', diff: 3, type: 'mc',
+    q: "Which 1962 US law strengthened drug regulation (including proof of efficacy) after thalidomide?",
+    options: ["The Kefauver-Harris Amendments", "The Pure Food and Drug Act", "HIPAA", "The 21st Century Cures Act"], answer: 0,
+    why: "It required evidence of effectiveness and strengthened adverse event reporting." },
+  { id: 'hist-007', cat: 'history', diff: 2, type: 'mc',
+    q: "Which FDA reviewer is famous for refusing to approve thalidomide in the US?",
+    options: ["Frances Kelsey", "Florence Nightingale", "Marie Curie", "Rosalind Franklin"], answer: 0,
+    why: "Her insistence on more safety data kept thalidomide off the US market." },
+  { id: 'hist-008', cat: 'history', diff: 2, type: 'tf',
+    q: "True or False: thalidomide was never approved in the US for morning sickness.", answer: true,
+    why: "It was widely used elsewhere, but the US application stalled over safety concerns." },
+  { id: 'hist-009', cat: 'history', diff: 2, type: 'mc',
+    q: "What is VigiBase?",
+    options: ["The WHO global database of individual case safety reports", "An EU inspection database",
+      "A MedDRA browser", "A US clinical trial registry"], answer: 0,
+    why: "It is maintained by the Uppsala Monitoring Centre and holds tens of millions of reports." },
+  { id: 'hist-010', cat: 'history', diff: 1, type: 'tf',
+    q: "True or False: pharmacovigilance continues for as long as a medicine is on the market, not just during clinical trials.", answer: true,
+    why: "Rare or long-term risks often only appear after wide use." },
+  { id: 'hist-011', cat: 'history', diff: 3, type: 'mc',
+    q: "The 1937 US 'Elixir Sulfanilamide' disaster, caused by a toxic solvent, led directly to which law?",
+    options: ["The 1938 Federal Food, Drug, and Cosmetic Act", "The Kefauver-Harris Amendments", "The Orphan Drug Act", "The Controlled Substances Act"], answer: 0,
+    why: "The solvent diethylene glycol killed over 100 people. The 1938 Act required safety testing before marketing." },
+  { id: 'hist-012', cat: 'history', diff: 1, type: 'mc',
+    q: "What does 'pharmacovigilance' roughly translate to?",
+    options: ["Watchfulness over medicines", "Pharmacy staffing", "Drug marketing", "Medicine vigilantes"], answer: 0,
+    why: "From Greek 'pharmakon' (drug) and Latin 'vigilare' (to keep watch)." },
+  { id: 'hist-013', cat: 'history', diff: 3, type: 'mc',
+    q: "What does CIOMS, known for the CIOMS I form, stand for?",
+    options: ["Council for International Organizations of Medical Sciences", "Centre for International Oversight of Medicine Safety",
+      "Committee on Individual Outcome Monitoring Systems", "Clinical Institute of Medical Surveillance"], answer: 0,
+    why: "CIOMS working groups have shaped many pharmacovigilance concepts." },
+
+  // ---------------- OFFICE LIFE (24) ----------------
+  { id: 'office-001', cat: 'office', diff: 1, type: 'mc',
+    q: "What is the most common reply to follow-up request #3?",
+    options: ["No reply", "A complete medical history", "A thank-you card", "A second, unrelated adverse event"], answer: 0,
+    why: "The silence is deafening. And very well documented." },
+  { id: 'office-002', cat: 'office', diff: 1, type: 'mc',
+    q: "Where is a missing batch number most likely to be found?",
+    options: ["In the one field the reporter left blank", "In the fridge", "In Section 7 of the PBRER", "On the ping pong table"], answer: 0,
+    why: "Batch numbers are the rarest species in the PV ecosystem." },
+  { id: 'office-003', cat: 'office', diff: 1, type: 'tf',
+    q: "True or False: 'I'll just quickly QC this' has ever taken less than an hour.", answer: false,
+    why: "'Quickly' is not a recognised time unit in QC." },
+  { id: 'office-004', cat: 'office', diff: 1, type: 'mc',
+    q: "The whole event description is 'felt weird'. What do you do?",
+    options: ["Deep breath, then send a follow-up request", "Code it as 'Weird'", "Close the case", "Ask the vending machine"], answer: 0,
+    why: "Follow-up is the answer. Crying into the MedDRA browser is optional." },
+  { id: 'office-005', cat: 'office', diff: 1, type: 'mc',
+    q: "What does 'as per my last email' really mean?",
+    options: ["I already told you this", "Please ignore my last email", "I love your emails", "My last email was lost"], answer: 0,
+    why: "The politest way to say 'please read'." },
+  { id: 'office-006', cat: 'office', diff: 1, type: 'odd',
+    q: "Odd one out: which is NOT a real PV acronym?",
+    options: ["ICSR", "SUSAR", "PBRER", "COFFEE"], answer: 3,
+    why: "COFFEE is not an acronym. It is a lifestyle." },
+  { id: 'office-007', cat: 'office', diff: 1, type: 'mc',
+    q: "214 unread emails at 9:01. Which one do you open first?",
+    options: ["The one with a serious case and a running clock", "The cake announcement", "The reply-all storm", "The newsletter"], answer: 0,
+    why: "Clocks first, cake second. (A close second.)" },
+  { id: 'office-008', cat: 'office', diff: 1, type: 'tf',
+    q: "True or False: printers jam more often on the day of a submission deadline.", answer: true,
+    why: "Not scientifically proven. Statistically undeniable." },
+  { id: 'office-009', cat: 'office', diff: 1, type: 'mc',
+    q: "Which phrase will definitely come back from QC?",
+    options: ["'Patient felt bad.'", "'The patient, a 45-year-old female...'", "'The event resolved on day 3.'", "'Relevant history includes hypertension.'"], answer: 0,
+    why: "A narrative needs facts: what, when, how serious, what happened next." },
+  { id: 'office-010', cat: 'office', diff: 1, type: 'mc',
+    q: "Day 14 of a 15-day case, 16:55. What do you do?",
+    options: ["Submit it. Now.", "Start a coffee chat", "Reorganise your desktop icons", "Book a meeting to discuss it"], answer: 0,
+    why: "Day 15 is a deadline, not a suggestion." },
+  { id: 'office-011', cat: 'office', diff: 1, type: 'mc',
+    q: "What is the right amount of coffee for PBRER week?",
+    options: ["Enough to function, not enough to vibrate", "None at all", "One bean, inhaled", "Directly by IV drip"], answer: 0,
+    why: "Too much and you'll become a SUSAR yourself." },
+  { id: 'office-012', cat: 'office', diff: 1, type: 'tf',
+    q: "True or False: 'Let's take this offline' usually leads to another meeting.", answer: true,
+    why: "Offline is just a meeting you haven't been invited to yet." },
+  { id: 'office-013', cat: 'office', diff: 1, type: 'mc',
+    q: "Someone replies all to 900 people with 'Please remove me'. What happens next?",
+    options: ["Twenty more people reply all asking the same", "Everyone is removed", "IT sends flowers", "Silence"], answer: 0,
+    why: "The reply-all storm is the only self-sustaining energy source known to science." },
+  { id: 'office-014', cat: 'office', diff: 1, type: 'mc',
+    q: "QC says 'just a few minor comments'. How many comments are there?",
+    options: ["27, three of them about the font", "Two", "None", "One, and it's a compliment"], answer: 0,
+    why: "Minor is a state of mind." },
+  { id: 'office-015', cat: 'office', diff: 1, type: 'odd',
+    q: "Odd one out: which will you NOT hear in a signal detection meeting?",
+    options: ["Could this be confounded?", "Let's check the PRR.", "We need more data.", "Let's finish early."], answer: 3,
+    why: "Signal meetings end on time only in folklore." },
+  { id: 'office-016', cat: 'office', diff: 1, type: 'mc',
+    q: "Where do SOP training reminders come from?",
+    options: ["The learning system, relentlessly", "A carrier pigeon", "Your future self", "The vending machine"], answer: 0,
+    why: "They will find you. They always find you." },
+  { id: 'office-017', cat: 'office', diff: 1, type: 'tf',
+    q: "True or False: the word 'quick' in 'quick favour' is legally binding.", answer: false,
+    why: "It is never quick. It has 14 suspect drugs." },
+  { id: 'office-018', cat: 'office', diff: 1, type: 'mc',
+    q: "What is the fastest way to make a PV colleague happy?",
+    options: ["Tell them the safety database is back up", "Assign them 12 literature cases", "Book a 7 a.m. meeting", "Rename the shared folder"], answer: 0,
+    why: "Or bring cake. Cake also works." },
+  { id: 'office-019', cat: 'office', diff: 2, type: 'mc',
+    q: "A consumer reports 'the tablet looked at me funny'. What is the most useful follow-up question?",
+    options: ["What happened after taking it, and when?", "Did it apologise?", "What colour were its eyes?", "Was it a tablet or a capsule?"], answer: 0,
+    why: "Onset, event and outcome: the real questions hiding behind every strange report." },
+  { id: 'office-020', cat: 'office', diff: 1, type: 'tf',
+    q: "True or False: every PV team has someone who knows MedDRA better than their own postcode.", answer: true,
+    why: "They also know which LLTs are non-current. By heart." },
+  { id: 'office-021', cat: 'office', diff: 1, type: 'mc',
+    q: "A case arrives at 16:59 on a Friday. Statistically it is most likely:",
+    options: ["Serious, with a short clock", "Non-serious", "A duplicate", "Spam"], answer: 0,
+    why: "Murphy's law of pharmacovigilance." },
+  { id: 'office-022', cat: 'office', diff: 2, type: 'odd',
+    q: "Odd one out: which is NOT a real reason a case bounces back from QC?",
+    options: ["Wrong seriousness", "Missing narrative detail", "Coding doesn't match the verbatim", "The narrative was too well written"], answer: 3,
+    why: "No narrative has ever been rejected for being too good. Nora is still trying." },
+  { id: 'office-023', cat: 'office', diff: 2, type: 'mc',
+    q: "What is the best way to survive an inspection?",
+    options: ["Keep documents complete, consistent and easy to find", "Hide in the WC", "Say 'probably' a lot", "Rename the folder 'misc'"], answer: 0,
+    why: "Inspection-ready every day beats heroic last-minute tidying." },
+  { id: 'office-024', cat: 'office', diff: 1, type: 'mc',
+    q: "How many browser tabs does a PV specialist have open during PBRER season?",
+    options: ["Yes", "3", "7", "12"], answer: 0,
+    why: "The laptop fan has filed a deviation." },
+];
 
 /* =====================================================================
    HELPERS
@@ -882,7 +1608,7 @@ function buildMap() {
   place('v', 19, 19, 3, 1); place('s', 18, 22, 5, 1); place('g', 28, 21, 5, 2); place('a', 37, 19, 1, 2); place('p', 16, 24); place('p', 38, 24);
   // desks remember which side the chair is on
   for (const o of OBJECTS) if (o.type === 'D' || o.type === 'M') o.sitterAbove = walkable(o.x, o.y - 1);
-  for (const o of OBJECTS) if (o.type === 'C') o.label = o.y < 18 ? 'MINI' : 'JAVA';
+  for (const o of OBJECTS) if (o.type === 'C') o.label = 'COFFEE';
 }
 function walkable(tx, ty) { return tx >= 0 && ty >= 0 && tx < MAP_W && ty < MAP_H && GRID[ty][tx] === '.'; }
 function objAt(tx, ty) { return OBJECTS.find((o) => tx >= o.x && tx < o.x + o.w && ty >= o.y && ty < o.y + o.h) || null; }
@@ -1025,6 +1751,7 @@ function faceRect(e, x, y, w = 1, h = 1) {
 const S = {
   mode: 'title',          // title | playing | dialog | scene | minigame | paused | gameover
   mgReady: {},             // mini-game id -> time it can be played again
+  triviaStreak: 0,         // PV Trivia streak (carries across trivia games within a shift)
   time: 0, day: 1, stats: {},
   cases: [], nextCaseAt: 0, caseSeq: 0, activeId: null, casesVersion: 0, onTime: 0, lateCount: 0, submitted: 0,
   coffeeReady: {}, brewing: null, toiletReadyAt: 0, vendReadyAt: 0, printerReadyAt: 0, printerJamUntil: 0, propReady: {}, dbDownUntil: 0,
@@ -1047,7 +1774,7 @@ function resetGame() {
     overloadT: 0, breakT: 0, breakScolded: false, working: false, target: null,
     event: null, nextEventAt: rand(CONFIG.events.firstMin, CONFIG.events.firstMax), lastEventId: null, meeting: null,
     scoldQueue: [], approaching: null, scoldReadyAt: 0, directorT: CONFIG.director.checkEvery, lastLowCompAt: -999,
-    dialog: null, scene: null, deathCause: null, score: 0, newHi: false, mgReady: {} });
+    dialog: null, scene: null, deathCause: null, score: 0, newHi: false, mgReady: {}, triviaStreak: 0 });
   S.casesVersion++;
   for (const e of ALL) {
     placeEntity(e, e.home.tx, e.home.ty, e.home.dir);
@@ -1193,7 +1920,7 @@ function anyDanger() { return STAT_KEYS.some((k) => S.stats[k] < CONFIG.stats[k]
 function playerZone() { return zoneOfTile(PLAYER.tx, PLAYER.ty); }
 
 function updateStats(dt) {
-  const st = S.stats, C = CONFIG, m = 1 + (S.day - 1) * C.difficulty.drainPerDay;
+  const st = S.stats, C = CONFIG, m = Math.min(C.difficulty.maxDrainMult, 1 + (S.day - 1) * C.difficulty.drainPerDay);
   for (const k of STAT_KEYS) st[k] -= C.stats[k].drain * m * dt;
   if (inRegenZone()) st.energy += C.energyRegen.rate * dt;
   if (st.caffeine > C.jitter.threshold) st.sanity -= C.jitter.sanityDrain * dt;
@@ -1293,6 +2020,7 @@ function interact(target) {
     case 'L': return useToilet();
     case 'V': return useVending();
     case 'v': return openMail();
+    case 'a': return startTrivia();
     case 'g': {
       if (!minigameReady('pong')) { say('The paddles need a rest. Try again in a bit.'); return; }
       const mates = NPCS.filter((n) => n.role === 'colleague' && n.state !== 'talk');
@@ -1432,7 +2160,7 @@ function updateCases() {
   const C = CONFIG.cases;
   if (S.time >= S.nextCaseAt) {
     spawnCase({});
-    const f = 1 + (S.day - 1) * CONFIG.difficulty.arrivalPerDay;
+    const f = Math.min(CONFIG.difficulty.maxArrivalMult, 1 + (S.day - 1) * CONFIG.difficulty.arrivalPerDay);
     S.nextCaseAt = S.time + rand(C.arrivalMin, C.arrivalMax) / f;
   }
   for (const c of S.cases) {
@@ -1950,8 +2678,8 @@ function drawObj(c, o, t) {
     case 'C': {
       box(c, X, Y + 4, W, H - 6, 3, '#b9bfdc');
       box(c, X + 12, Y - 14, W - 24, H + 8, 5, '#4b5378');
-      c.fillStyle = '#1b1d33'; rr(c, X + 16, Y - 10, W - 32, 9, 2); c.fill();
-      drawPx(c, o.label || 'JAVA', X + W / 2, Y - 9, 1, '#ffb000', 'center');
+      c.fillStyle = '#1b1d33'; rr(c, X + 13, Y - 10, W - 26, 9, 2); c.fill();
+      drawPx(c, o.label || 'COFFEE', X + W / 2, Y - 9, 1, '#ffb000', 'center');
       c.fillStyle = S.time < (S.coffeeReady[o.id] || 0) || S.brewing === o ? (Math.sin(t * 10) > 0 ? '#ff3b3b' : '#6a1a2a') : '#39ff88';
       circle(c, X + W - 17, Y + 5, 2.5); c.fill();
       box(c, X + W / 2 - 6, Y + 6, 12, 10, 2, '#ffffff', 2);
@@ -2017,7 +2745,10 @@ function drawObj(c, o, t) {
       c.fillStyle = '#e53935'; circle(c, X + 24, Y + H / 2, 5); c.fill(); circle(c, X + W - 24, Y + H / 2, 5); c.fill(); return;
     case 'a': box(c, X + 3, Y - 12, W - 6, H + 8, 4, '#3a1a6a'); c.strokeStyle = '#ff3fb4'; c.lineWidth = 2; rr(c, X + 5, Y - 10, W - 10, H + 4, 3); c.stroke();
       c.fillStyle = `hsl(${(t * 120) % 360},90%,60%)`; c.fillRect(X + 8, Y - 4, W - 16, 18);
-      c.fillStyle = '#e53935'; circle(c, X + 12, Y + 24, 3); c.fill(); return;
+      c.fillStyle = '#e53935'; circle(c, X + 12, Y + 24, 3); c.fill();
+      drawPx(c, '?', X + W / 2, Y - 1, 1, '#ffffff', 'center');
+      drawPx(c, 'TRIVIA', X + W / 2, Y - 21, 1, '#ff3fb4', 'center', INK);
+      return;
     case 'p': c.fillStyle = 'rgba(0,0,0,.18)'; ellipse(c, X + 16, Y + 28, 10, 4); c.fill();
       box(c, X + 9, Y + 14, 14, 14, 3, '#c0613a', 2);
       c.fillStyle = '#2fbf71'; for (const [lx, ly, r] of [[16, 6, 8], [9, 10, 6], [23, 10, 6]]) { circle(c, X + lx, Y + ly, r); c.fill(); ink(c, 2); }
@@ -2294,6 +3025,7 @@ function promptLabel(tg) {
     case 'L': return S.time < S.toiletReadyAt ? 'WC (OCCUPIED)' : 'BIO BREAK';
     case 'V': return S.time < S.vendReadyAt ? 'VENDING (BUSY)' : 'SNACKS (+NRG)';
     case 'v': return 'CHECK CORPORATE EMAIL';
+    case 'a': return minigameReady('trivia') ? 'PLAY PV TRIVIA' : 'TRIVIA (COOLING DOWN)';
     case 'g': return minigameReady('pong') ? 'PLAY TABLE TENNIS' : 'TABLE TENNIS (RESTING)';
     case 'T': case 'W': return S.event && S.event.def.type === 'meeting' ? 'JOIN MEETING' : 'LOOK';
     default: return 'LOOK';
@@ -2461,10 +3193,10 @@ function minigameOf(npc) { return Object.keys(CONTENT.minigames).find((id) => CO
 
 function startMinigame(id, npc) {
   const def = CONTENT.minigames[id];
-  S.mgReady[id] = S.time + CONFIG.minigames.cooldown;
+  S.mgReady[id] = S.time + (id === 'trivia' ? CONFIG.trivia.cooldown : CONFIG.minigames.cooldown);
   S.mode = 'minigame';
   if (npc) { npc.state = 'talk'; npc.path = []; }
-  MG.active = id === 'pong' ? new PongGame(def, npc) : new QuizGame(id, def, npc);
+  MG.active = id === 'pong' ? new PongGame(def, npc) : id === 'trivia' ? new TriviaGame(def) : new QuizGame(id, def, npc);
   UI.showMinigame(MG.active);
   sfx.start();
 }
@@ -2613,6 +3345,134 @@ class PongGame {
     drawPx(c, this.npc ? this.npc.name.split(' ')[0] : 'CPU', W - 24, H - 16, 1, '#ffffff', 'right');
     if (this.state === 'intro') drawPx(c, 'FIRST TO ' + CONFIG.minigames.pong.pointsToWin + '!', W / 2, H / 2 - 10, 3, '#ffd23f', 'center', INK);
     if (this.state === 'point') drawPx(c, this.lastWinner === 0 ? 'POINT CASEY!' : 'POINT ' + (this.npc ? this.npc.name.split(' ')[0] : 'CPU') + '!', W / 2, H / 2 - 10, 3, '#ffd23f', 'center', INK);
+  }
+}
+
+/* =====================================================================
+   PV TRIVIA (arcade cabinet): a no-repeat shuffle bag + an arcade quiz with streaks
+   ===================================================================== */
+/** Remembers which questions this browser has already seen (across games and sessions).
+ *  A question only comes back after the whole bank has been used; then the bag reshuffles. */
+const TriviaBag = {
+  seen: new Set(), lastCat: null, cycle: 1,
+  load() {
+    const d = Store.get(CONFIG.storageKeys.trivia, null);
+    this.seen = new Set(d && Array.isArray(d.seen) ? d.seen : []);
+    this.lastCat = (d && d.lastCat) || null;
+    this.cycle = (d && d.cycle) || 1;
+  },
+  save() { Store.set(CONFIG.storageKeys.trivia, { seen: [...this.seen], lastCat: this.lastCat, cycle: this.cycle }); },
+  mixFor(day) {
+    let mix = CONFIG.trivia.difficultyByDay[0].mix;
+    for (const r of CONFIG.trivia.difficultyByDay) if (day >= r.fromDay) mix = r.mix;
+    return mix;
+  },
+  draw(day) {
+    const bank = CONTENT.triviaBank;
+    let pool = bank.filter((q) => !this.seen.has(q.id));
+    if (!pool.length) { this.seen.clear(); this.cycle++; pool = bank.slice(); }   // whole bank used: reshuffle
+    const otherCat = pool.filter((q) => q.cat !== this.lastCat);                   // no same category twice in a row
+    if (otherCat.length) pool = otherCat;
+    // difficulty ramp: pick a target difficulty for this day, fall back to the nearest one that still has questions
+    const mix = this.mixFor(day);
+    let r = Math.random() * ((mix[1] || 0) + (mix[2] || 0) + (mix[3] || 0)), target = 1;
+    for (const d of [1, 2, 3]) { r -= mix[d] || 0; if (r <= 0) { target = d; break; } }
+    const order = [1, 2, 3].sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || a - b);
+    let cands = [];
+    for (const d of order) { cands = pool.filter((q) => q.diff === d); if (cands.length) break; }
+    const q = pick(cands);
+    this.seen.add(q.id); this.lastCat = q.cat; this.save();
+    return q;
+  },
+};
+TriviaBag.load();
+
+function prepareTrivia(q) {
+  const opts = q.type === 'tf'
+    ? [{ text: 'TRUE', ok: q.answer === true }, { text: 'FALSE', ok: q.answer === false }]
+    : shuffle(q.options.map((text, i) => ({ text, ok: i === q.answer })));
+  return { ...q, opts };
+}
+function triviaMultiplier(streak) {
+  let x = 1;
+  for (const m of CONFIG.trivia.multipliers) if (streak >= m.streak) x = m.x;
+  return x;
+}
+function startTrivia() {
+  if (!minigameReady('trivia')) { say(pick(CONTENT.props.a.lines)); sfx.denied(); return; }
+  startMinigame('trivia', null);
+}
+const sfxTrivia = {
+  correct() { Sound.seq([NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6], 0.06, { vol: 0.18 }); },
+  wrong()   { Sound.tone(260, 0.18, { type: 'sawtooth', vol: 0.18 }); Sound.tone(180, 0.35, { type: 'sawtooth', vol: 0.18, slide: 90, delay: 0.16 }); },
+  streak()  { Sound.seq([NOTE.G5, NOTE.C6, NOTE.G5, NOTE.C6, NOTE.E5, NOTE.C6], 0.05, { vol: 0.15, delay: 0.28 }); },
+};
+
+class TriviaGame {
+  constructor(def) {
+    this.kind = 'trivia'; this.def = def; this.npc = null;
+    this.n = CONFIG.trivia.questionsPerGame;
+    this.round = -1; this.correct = 0; this.points = 0; this.gained = 0; this.bonusMsg = '';
+    this.bestStreak = S.triviaStreak || 0;
+    this.state = 'intro'; this.t = 0; this.q = null; this.picked = null;
+  }
+  update(dt) {
+    this.t += dt;
+    if (this.state === 'intro' && this.t > 1.8) this.next();
+    else if (this.state === 'question') { this.timeLeft -= dt; if (this.timeLeft <= 0) this.answer(-1); }
+    else if (this.state === 'feedback' && this.t > CONFIG.trivia.whySeconds) this.next();
+  }
+  next() {
+    this.round++; this.t = 0; this.picked = null; this.gained = 0; this.bonusMsg = '';
+    if (this.round >= this.n) return this.finish();
+    this.q = prepareTrivia(TriviaBag.draw(S.day));
+    this.timeTotal = CONFIG.trivia.seconds[this.q.type] || 10;
+    this.timeLeft = this.timeTotal;
+    this.state = 'question';
+    UI.renderMinigame(this);
+  }
+  answer(i) {
+    if (this.state !== 'question') return;
+    const C = CONFIG.trivia;
+    this.picked = i;
+    this.ok = i >= 0 && !!(this.q.opts[i] && this.q.opts[i].ok);
+    if (this.ok) {
+      this.correct++;
+      S.triviaStreak = (S.triviaStreak || 0) + 1;
+      this.bestStreak = Math.max(this.bestStreak, S.triviaStreak);
+      this.mult = triviaMultiplier(S.triviaStreak);
+      this.gained = Math.round((C.pointsPerDifficulty[this.q.diff] || 100) * this.mult);
+      this.points += this.gained;
+      sfxTrivia.correct();
+      if (S.triviaStreak % C.streakBonusEvery === 0) {
+        applyEffects(C.streakBonus);
+        this.bonusMsg = `STREAK ${S.triviaStreak}! ${fxHint(C.streakBonus).replace(/<[^>]+>/g, '')}`;
+        sfxTrivia.streak();
+      }
+    } else {
+      S.triviaStreak = 0;
+      sfxTrivia.wrong();
+    }
+    this.state = 'feedback'; this.t = 0;
+    UI.renderMinigame(this);
+  }
+  finish() {
+    const R = CONFIG.trivia.reward, frac = this.correct / this.n;
+    this.reward = { sanity: R.sanityBase + R.sanityPerCorrect * this.correct, compliance: R.compliancePerCorrect * this.correct };
+    this.resultLine = this.def.results[frac >= 1 ? 0 : frac >= 0.6 ? 1 : 2];
+    this.state = 'result'; this.t = 0;
+    frac >= 0.6 ? sfx.submit() : sfx.meh();
+    UI.renderMinigame(this);
+  }
+  key(k) {
+    const go = ['e', ' ', 'enter'].includes(k);
+    if (this.state === 'result') { if (this.t > 0.4 && go) endMinigame(); return; }
+    if (this.state === 'intro') { if (go) this.next(); return; }
+    if (this.state === 'feedback') { if (go && this.t > 0.6) this.next(); return; }
+    if (this.state !== 'question') return;
+    let i = ['1', '2', '3', '4'].indexOf(k);
+    if (this.q.type === 'tf' && (k === 't' || k === 'f')) i = k === 't' ? 0 : 1;
+    if (i >= 0 && i < this.q.opts.length) this.answer(i);
   }
 }
 
@@ -2784,8 +3644,8 @@ const UI = {
       $('#evTime').textContent = Math.max(0, S.event.timeLeft).toFixed(1);
       $('#evBar').style.width = (100 * Math.max(0, S.event.timeLeft) / S.event.total) + '%';
     }
-    if (MG.active && MG.active.kind === 'quiz' && MG.active.state === 'question') {
-      const bar = $('#qBar'); if (bar) bar.style.width = (100 * MG.active.timeLeft / CONFIG.minigames.quizSeconds) + '%';
+    if (MG.active && (MG.active.kind === 'quiz' || MG.active.kind === 'trivia') && MG.active.state === 'question') {
+      const bar = $('#qBar'); if (bar) bar.style.width = (100 * MG.active.timeLeft / (MG.active.timeTotal || CONFIG.minigames.quizSeconds)) + '%';
     }
     if (this.touch) {
       const label = S.mode === 'minigame' ? 'OK' : S.mode === 'playing' ? (promptLabel(S.target) || 'ACTION') : S.mode === 'title' || S.mode === 'gameover' ? 'START' : 'OK';
@@ -2899,7 +3759,69 @@ const UI = {
   // ---- mini-games ----
   showMinigame(g) { $('#mg').hidden = false; $('#mgTitle').textContent = g.def.title; $('#mgBody').innerHTML = ''; this.renderMinigame(g); },
   hideMinigame() { $('#mg').hidden = true; $('#mgBody').innerHTML = ''; },
+  renderTrivia(g) {
+    const body = $('#mgBody'), info = $('#mgInfo'), foot = $('#mgFoot'), C = CONFIG.trivia;
+    body.innerHTML = '';
+    if (g.state === 'intro') {
+      info.textContent = `ARCADE · ${g.n} QUESTIONS`;
+      foot.textContent = 'E / SPACE to start · ESC to quit';
+      body.append(pxCanvas('PV TRIVIA', 6, '#ff3fb4', '#4a0030', 'glow-pink'), el('div', 'mg-intro', ''), el('div', 'mg-ready blink', 'INSERT COFFEE... GET READY!'));
+      body.querySelector('.mg-intro').textContent = g.def.intro;
+      if (S.triviaStreak > 0) body.insertBefore(el('div', 'tv-streak hot', `🔥 STREAK ${S.triviaStreak} CARRIED OVER`), body.lastChild);
+      return;
+    }
+    if (g.state === 'result') {
+      info.textContent = `${g.points} PTS`;
+      foot.textContent = '';
+      const good = g.correct / g.n >= 0.6;
+      body.append(
+        pxCanvas(`${g.correct}/${g.n} CORRECT`, 5, good ? '#39ff88' : '#ffd23f', '#000', good ? 'glow-cyan' : 'glow-yellow'),
+        el('div', 'ov-score', `${g.points} POINTS · BEST STREAK ${g.bestStreak}`),
+        el('div', 'mg-line', ''), el('div', 'mg-reward', 'REWARD: ' + fxHint(g.reward)),
+        this.startButton('PRESS E TO CONTINUE', () => { if (MG.active && MG.active.t > 0.4) endMinigame(); }));
+      body.querySelector('.mg-line').textContent = g.resultLine;
+      return;
+    }
+    const q = g.q, mult = triviaMultiplier(S.triviaStreak);
+    info.textContent = `Q ${g.round + 1}/${g.n} · ${g.points} PTS`;
+    foot.textContent = q.type === 'tf' ? 'T / F, 1-2 or tap to answer · ESC to quit' : '1-4 or tap to answer · ESC to quit';
+    const wrap = el('div', 'tv-wrap', '');
+    const top = el('div', 'tv-top', '');
+    const chip = el('div', '', '');
+    const cat = el('span', 'tv-chip', ''); cat.textContent = CONTENT.triviaCategories[q.cat] || q.cat;
+    const stars = el('span', 'tv-stars', '★'.repeat(q.diff) + '☆'.repeat(3 - q.diff));
+    chip.append(cat, stars);
+    if (q.type !== 'mc') chip.append(el('span', 'tv-type', q.type === 'tf' ? 'TRUE OR FALSE' : 'ODD ONE OUT'));
+    const streak = el('div', 'tv-streak' + (S.triviaStreak >= 3 ? ' hot' : ''), `🔥 STREAK ${S.triviaStreak} · ×${mult}`);
+    top.append(chip, streak);
+    const qt = el('div', 'q-text', ''); qt.textContent = q.q;
+    const opts = el('div', 'tv-opts' + (q.type === 'tf' ? ' two' : ''), '');
+    q.opts.forEach((o, i) => {
+      const b = document.createElement('button');
+      b.className = 'choice'; b.tabIndex = -1;
+      if (g.state === 'feedback') { if (o.ok) b.classList.add('right'); else if (i === g.picked) b.classList.add('wrong'); }
+      b.innerHTML = `<span class="k">${q.type === 'tf' ? (i ? 'F' : 'T') : i + 1}</span><span class="t"></span>`;
+      b.querySelector('.t').textContent = o.text;
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (MG.active === g) g.answer(i); });
+      opts.appendChild(b);
+    });
+    wrap.append(top, qt, opts, el('div', 'q-timer', '<div id="qBar"></div>'));
+    if (g.state === 'feedback') {
+      const bn = el('div', 'tv-banner ' + (g.ok ? 'ok' : 'bad'), '');
+      bn.append(pxCanvas(g.ok ? 'CORRECT!' : g.picked < 0 ? 'TIME UP!' : 'WRONG!', 4, g.ok ? '#39ff88' : '#ff3b3b', '#000'));
+      if (g.ok) bn.append(el('div', 'tv-gain', `+${g.gained} PTS${g.mult > 1 ? ` (×${g.mult})` : ''}`));
+      if (g.bonusMsg) bn.append(el('div', 'tv-bonus', ''));
+      wrap.append(bn);
+      if (g.bonusMsg) bn.querySelector('.tv-bonus').textContent = g.bonusMsg;
+      const why = el('div', 'tv-why', '<b>DID YOU KNOW?</b> ');
+      why.append(document.createTextNode(q.why));
+      wrap.append(why);
+      const bar = wrap.querySelector('#qBar'); if (bar) bar.style.width = '0%';
+    }
+    body.append(wrap);
+  },
   renderMinigame(g) {
+    if (g.kind === 'trivia') return this.renderTrivia(g);
     const body = $('#mgBody'), info = $('#mgInfo'), foot = $('#mgFoot');
     const opp = g.npc ? g.npc.name.toUpperCase() : '';
     if (g.state === 'result') {
@@ -2987,7 +3909,7 @@ const UI = {
       this.startButton('INSERT COFFEE TO START', () => this.showNameEntry()),
       el('div', 'ov-hi', `YOUR BEST ${S.hi.score} PTS · ${(S.hi.days || 0).toFixed(1)} DAYS · ${S.hi.cases || 0} CASES`),
       this.boardSlot(5),
-      el('div', 'ov-help', '<b>WASD/ARROWS</b> walk (tap = turn) · <b>E/SPACE</b> talk/use · <b>HOLD E</b> at your desk to work a case<br><b>CLICK/TAP</b> to walk there · <b>1-5</b> answer · <b>O</b> clock out · <b>P</b> pause · <b>M</b> mute'),
+      el('div', 'ov-help', '<b>WASD/ARROWS</b> walk (tap = turn) · <b>E/SPACE</b> talk/use · <b>HOLD E</b> at your desk to work a case<br><b>CLICK</b> to walk there (phones: joystick + action button) · <b>1-5</b> answer · <b>O</b> clock out · <b>P</b> pause · <b>M</b> mute'),
       el('div', 'ov-foot', CONTENT.footer),
     ]);
   },
@@ -3175,7 +4097,7 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 // click / tap to move (and to use things)
 cv.addEventListener('pointerdown', (e) => {
   Sound.init();
-  if (e.pointerType === 'touch') UI.enableTouch();
+  if (e.pointerType === 'touch') { UI.enableTouch(); return; }   // phones: joystick + action button only, no tap-to-move
   if (S.mode !== 'playing') return;
   const w = toWorld(e.clientX, e.clientY);
   const tx = Math.floor(w.x / T), ty = Math.floor(w.y / T);
@@ -3212,7 +4134,7 @@ window.addEventListener('pointerup', () => { input.mouseWork = false; });
     input.joy = len < 14 ? null : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
   };
   const end = () => { id = null; input.joy = null; knob.style.transform = ''; };
-  joy.addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.init(); id = e.pointerId; joy.setPointerCapture(id); move(e); });
+  joy.addEventListener('pointerdown', (e) => { e.preventDefault(); Sound.init(); id = e.pointerId; try { joy.setPointerCapture(id); } catch (err) { /* capture is optional */ } move(e); });
   joy.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
   joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
   btn.addEventListener('pointerdown', (e) => {
@@ -3258,7 +4180,7 @@ function frame(now) {
 /* Test/balance hooks (harmless in normal play) */
 window.DSS = {
   CONFIG, CONTENT, S, V, P: PLAYER, NPCS, OBJECTS, GRID, MY_DESK, walkable, bfs,
-  start: startGame, gameOver, Board, clockOut, openMail, closeMail, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
+  start: startGame, gameOver, Board, clockOut, openMail, closeMail, TriviaBag, prepareTrivia, startTrivia, spawnEvent, spawnCase, queueScold, chooseAny, MG, startMinigame, endMinigame,
   api: {
     goToTile(tx, ty) { const P = PLAYER; if (P.tx === tx && P.ty === ty && !P.moving) return true; if (!P.path.length && !P.moving) pathTo(P, tx, ty); return false; },
     goToObj(type) {
@@ -3278,6 +4200,7 @@ window.DSS = {
     hold(b) { input.simHold = b; },
     target: () => currentTarget(),
     vendReady: () => S.time >= S.vendReadyAt,
+    toiletReady: () => S.time >= S.toiletReadyAt,
     coffeeReady() { const P = PLAYER; const o = OBJECTS.filter((x) => x.type === 'C').sort((a, b) => (Math.abs(a.x - P.tx) + Math.abs(a.y - P.ty)) - (Math.abs(b.x - P.tx) + Math.abs(b.y - P.ty)))[0]; return S.time >= (S.coffeeReady[o.id] || 0); },
     zone: () => playerZone(),
     activeCase: () => activeCase(),
